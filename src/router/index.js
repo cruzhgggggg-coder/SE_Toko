@@ -5,6 +5,7 @@ import Dashboard  from '@/pages/Dashboard.vue'
 import Kasir      from '@/pages/Kasir.vue'
 import Inventory  from '@/pages/Inventory.vue'
 import Pelanggan  from '@/pages/Pelanggan.vue'
+import LunasHutang from '@/pages/LunasHutang.vue'
 import Laporan    from '@/pages/Laporan.vue'
 import Pengaturan from '@/pages/Pengaturan.vue'
 import Backup     from '@/pages/Backup.vue'
@@ -21,6 +22,7 @@ const routes = [
   { path: '/kasir',       component: Kasir,         name: 'Kasir',         meta: { roles: ['owner', 'kasir'] } },
   { path: '/inventory',   component: Inventory,     name: 'Inventory',     meta: { roles: ['owner', 'admin'] } },
   { path: '/pelanggan',   component: Pelanggan,     name: 'Pelanggan',     meta: { roles: ['owner', 'kasir'] } },
+  { path: '/pelanggan/:id/bayar', component: LunasHutang, name: 'LunasHutang', meta: { roles: ['owner', 'kasir'] } },
   { path: '/laporan',     component: Laporan,       name: 'Laporan',       meta: { roles: ['owner'] } },
   { path: '/pengaturan',  component: Pengaturan,    name: 'Pengaturan',    meta: { roles: ['owner'] } },
   { path: '/backup',      component: Backup,        name: 'Backup',        meta: { roles: ['owner'] } },

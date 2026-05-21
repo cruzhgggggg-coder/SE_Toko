@@ -140,15 +140,7 @@
           </div>
         </div>
 
-        <!-- License Status -->
-        <div class="license-card">
-          <p class="lic-tag">STATUS LISENSI</p>
-          <div class="lic-row">
-            <p class="lic-name">TIM Elite</p>
-            <span class="lic-badge">AKTIF</span>
-          </div>
-          <p class="lic-exp">Berlaku hingga 12 Jan 2026</p>
-        </div>
+
       </div>
     </div>
 
@@ -178,6 +170,7 @@
 import { ref, onMounted } from 'vue'
 import axios from '@/plugins/axios'
 import { useAuthStore } from '../stores/auth'
+import { useUIStore } from '@/stores/ui'
 import ToastNotification from '@/components/shared/ToastNotification.vue'
 
 const activeTab = ref('profile')
@@ -230,6 +223,9 @@ async function saveAll() {
     }
     
     await axios.post('/settings', settingsPayload)
+    
+    const uiStore = useUIStore()
+    uiStore.setShopName(store.value.shop_name)
     
     toast.value = { show: true, message: 'Pengaturan Berhasil Disimpan', type: 'success' }
   } catch (error) {
@@ -359,23 +355,7 @@ onMounted(() => {
 .receipt-line.medium { width: 70%; }
 .receipt-line.short  { width: 45%; }
 
-.license-card {
-  background: var(--color-sidebar-bg); color: #fff;
-  border-radius: var(--radius-lg); padding: var(--spacing-xl);
-  position: relative; overflow: hidden;
-}
-.license-card::after {
-  content: '';
-  position: absolute; right: -20px; top: -20px;
-  width: 100px; height: 100px;
-  background: rgba(255,255,255,0.05);
-  border-radius: 50%;
-}
-.lic-tag   { font-size: var(--font-xs); opacity: 0.6; letter-spacing: 1px; font-weight: 700; margin-bottom: 8px; }
-.lic-row   { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
-.lic-name  { font-size: var(--font-2xl); font-weight: 800; }
-.lic-badge { background: var(--color-primary); color: #fff; padding: 3px 10px; border-radius: var(--radius-full); font-size: var(--font-xs); font-weight: 700; }
-.lic-exp   { font-size: var(--font-sm); opacity: 0.7; }
+
 
 /* Footer */
 .settings-footer {

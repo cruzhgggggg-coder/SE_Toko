@@ -19,8 +19,13 @@ class CustomerController extends Controller
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
-            'debt_limit' => 'required|numeric|min:0',
+            'tier' => 'nullable|string|max:100',
+            'debt_limit' => 'nullable|numeric|min:0',
         ]);
+
+        if (!isset($validated['debt_limit']) || is_null($validated['debt_limit'])) {
+            $validated['debt_limit'] = 5000000;
+        }
 
         $customer = Customer::create($validated);
 
@@ -41,6 +46,7 @@ class CustomerController extends Controller
             'name' => 'string|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
+            'tier' => 'nullable|string|max:100',
             'debt_limit' => 'numeric|min:0',
             'is_active' => 'boolean'
         ]);

@@ -4,20 +4,24 @@ namespace Database\Seeders;
 
 use App\Models\Product;
 use App\Models\StockBatch;
+use App\Models\Category;
 use Illuminate\Database\Seeder;
 
 class ProductSeeder extends Seeder
 {
     public function run(): void
     {
+        $catBeras = Category::where('name', 'Beras')->first();
         $p1 = Product::create([
             'name' => 'Beras Pandan Wangi 5kg',
             'sku' => 'BRS-001',
-            'category' => 'Sembako',
+            'category' => $catBeras ? $catBeras->name : 'Beras',
+            'category_id' => $catBeras ? $catBeras->id : null,
             'unit' => 'karung',
             'min_stock' => 5,
             'image' => 'https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=2070&auto=format&fit=crop'
         ]);
+        $p1->updateLowStockStatus();
 
         StockBatch::create([
             'product_id' => $p1->id,
@@ -29,14 +33,17 @@ class ProductSeeder extends Seeder
             'expired_date' => '2027-01-01',
         ]);
 
+        $catMinyak = Category::where('name', 'Minyak')->first();
         $p2 = Product::create([
             'name' => 'Minyak Goreng Bimoli 2L',
             'sku' => 'MNY-001',
-            'category' => 'Sembako',
+            'category' => $catMinyak ? $catMinyak->name : 'Minyak',
+            'category_id' => $catMinyak ? $catMinyak->id : null,
             'unit' => 'pouch',
             'min_stock' => 10,
             'image' => 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?q=80&w=2070&auto=format&fit=crop'
         ]);
+        $p2->updateLowStockStatus();
 
         StockBatch::create([
             'product_id' => $p2->id,
@@ -48,14 +55,17 @@ class ProductSeeder extends Seeder
             'expired_date' => '2026-12-01',
         ]);
 
+        $catMie = Category::where('name', 'Mie & Pasta')->first();
         $p3 = Product::create([
             'name' => 'Indomie Goreng Original',
             'sku' => 'IDM-001',
-            'category' => 'Mie Instan',
+            'category' => $catMie ? $catMie->name : 'Mie & Pasta',
+            'category_id' => $catMie ? $catMie->id : null,
             'unit' => 'bungkus',
             'min_stock' => 50,
             'image' => 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?q=80&w=2070&auto=format&fit=crop'
         ]);
+        $p3->updateLowStockStatus();
 
         StockBatch::create([
             'product_id' => $p3->id,
@@ -68,3 +78,4 @@ class ProductSeeder extends Seeder
         ]);
     }
 }
+

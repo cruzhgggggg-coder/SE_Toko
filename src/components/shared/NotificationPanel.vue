@@ -33,6 +33,11 @@
           <div class="notif-body">
             <div class="notif-meta">
               <span class="notif-name">{{ item.title }}</span>
+              <button class="dismiss-btn" @click="dismissNotification(item)" title="Hapus Notifikasi">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
             </div>
             <p class="notif-desc">{{ item.message }}</p>
             <button class="notif-action-btn">RESTOCK SEKARANG →</button>
@@ -54,7 +59,14 @@
           <div class="notif-body">
             <div class="notif-meta">
               <span class="notif-name">{{ item.title }}</span>
-              <span class="badge badge-danger" style="font-size:10px">KADALUARSA</span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="badge badge-danger" style="font-size:10px">KADALUARSA</span>
+                <button class="dismiss-btn" @click="dismissNotification(item)" title="Hapus Notifikasi">
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
             </div>
             <p class="notif-desc">{{ item.message }}</p>
             <div class="notif-actions-row">
@@ -78,6 +90,11 @@
           <div class="notif-body">
             <div class="notif-meta">
               <span class="notif-name">{{ item.title }}</span>
+              <button class="dismiss-btn" @click="dismissNotification(item)" title="Hapus Notifikasi">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
             </div>
             <p class="notif-desc">{{ item.message }}</p>
           </div>
@@ -88,7 +105,7 @@
       <div class="notif-footer">
         <div class="notif-summary-header">
           <span>PENGHITUNGAN CEPAT</span>
-          <button class="hapus-semua" @click="notifications = []">HAPUS SEMUA</button>
+          <button class="hapus-semua" @click="dismissAll">HAPUS SEMUA</button>
         </div>
         <div class="notif-summary-grid">
           <div class="summary-card">
@@ -110,11 +127,12 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import axios from '@/plugins/axios'
 import { useAuthStore } from '../../stores/auth'
 
-defineEmits(['close'])
+const emit = defineEmits(['close', 'update-count'])
 
 const authStore = useAuthStore()
 
 const notifications = ref([])
+const dismissedKeys = ref([])
 let pollInterval = null
 
 async function fetchNotifications() {
@@ -129,23 +147,58 @@ async function fetchNotifications() {
 onMounted(() => {
   fetchNotifications()
   pollInterval = setInterval(fetchNotifications, 60000) // Poll every 60 seconds
+  const stored = localStorage.getItem('dismissed_notifications')
+  if (stored) {
+    try {
+      dismissedKeys.value = JSON.parse(stored)
+    } catch (e) {
+      dismissedKeys.value = []
+    }
+  }
 })
 
 onUnmounted(() => {
   if (pollInterval) clearInterval(pollInterval)
 })
 
+const filteredNotifications = computed(() => {
+  return notifications.value.filter(n => {
+    const key = `${n.type}:${n.title || ''}:${n.message || ''}`
+    return !dismissedKeys.value.includes(key)
+  })
+})
+
 const lowStockAlerts = computed(() => {
-  return notifications.value.filter(n => n.type === 'LOW_STOCK')
+  return filteredNotifications.value.filter(n => n.type === 'LOW_STOCK')
 })
 
 const expiryAlerts = computed(() => {
-  return notifications.value.filter(n => n.type === 'EXPIRY')
+  return filteredNotifications.value.filter(n => n.type === 'EXPIRY')
 })
 
 const overdueDebts = computed(() => {
-  return notifications.value.filter(n => n.type === 'OVERDUE_DEBT')
+  return filteredNotifications.value.filter(n => n.type === 'OVERDUE_DEBT')
 })
+
+const dismissNotification = (item) => {
+  const key = `${item.type}:${item.title || ''}:${item.message || ''}`
+  if (!dismissedKeys.value.includes(key)) {
+    dismissedKeys.value.push(key)
+    localStorage.setItem('dismissed_notifications', JSON.stringify(dismissedKeys.value))
+    emit('update-count')
+  }
+}
+
+const dismissAll = () => {
+  notifications.value.forEach(item => {
+    const key = `${item.type}:${item.title || ''}:${item.message || ''}`
+    if (!dismissedKeys.value.includes(key)) {
+      dismissedKeys.value.push(key)
+    }
+  })
+  localStorage.setItem('dismissed_notifications', JSON.stringify(dismissedKeys.value))
+  emit('update-count')
+}
 </script>
 
 <style scoped>
@@ -174,7 +227,7 @@ const overdueDebts = computed(() => {
 }
 
 .notif-header {
-  background: var(--color-sidebar-bg);
+  background: var(--color-primary);
   padding: 20px var(--spacing-lg);
   display: flex;
   align-items: center;
@@ -263,13 +316,14 @@ const overdueDebts = computed(() => {
 
 .notif-action-btn {
   width: 100%;
-  background: var(--color-sidebar-bg);
+  background: var(--color-primary);
   color: #fff;
   padding: 6px;
   border-radius: var(--radius-sm);
   font-size: var(--font-xs);
   font-weight: 700;
   letter-spacing: 0.5px;
+  cursor: pointer;
 }
 
 .notif-actions-row { display: flex; gap: 8px; align-items: center; }
@@ -351,4 +405,22 @@ const overdueDebts = computed(() => {
 }
 
 .summary-card.danger .summary-num { color: var(--color-danger); }
+
+.dismiss-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 4px;
+  transition: all var(--transition-fast);
+}
+
+.dismiss-btn:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-light);
+}
 </style>

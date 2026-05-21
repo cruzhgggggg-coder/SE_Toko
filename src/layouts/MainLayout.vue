@@ -3,7 +3,7 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <span class="sidebar-logo">TOKO SUMBER<br />MAKMUR</span>
+        <span class="sidebar-logo" v-html="formattedShopName"></span>
         <span class="sidebar-role">{{ currentPage }}</span>
       </div>
 
@@ -138,7 +138,7 @@
     </div>
 
     <!-- NOTIFICATION PANEL (Aside) -->
-    <NotificationPanel v-if="showNotification" @close="showNotification = false" />
+    <NotificationPanel v-if="showNotification" @close="showNotification = false" @update-count="fetchNotifCount" />
 
     <!-- GANTI USER MODAL -->
     <GantiUserModal 
@@ -173,15 +173,39 @@ let notifPoll = null
 async function fetchNotifCount() {
   try {
     const res = await axios.get('/notifications')
-    notifCount.value = res.data.length
+    let dismissed = []
+    const stored = localStorage.getItem('dismissed_notifications')
+    if (stored) {
+      try {
+        dismissed = JSON.parse(stored)
+      } catch (e) {}
+    }
+    const filtered = res.data.filter(n => {
+      const key = `${n.type}:${n.title || ''}:${n.message || ''}`
+      return !dismissed.includes(key)
+    })
+    notifCount.value = filtered.length
   } catch (e) {
     // silent fail
   }
 }
 
-onMounted(() => {
+const formattedShopName = computed(() => {
+  const name = ui.shopName || 'TOKO SUMBER MAKMUR'
+  return name.replace(/\s+/g, '<br />')
+})
+
+onMounted(async () => {
   fetchNotifCount()
   notifPoll = setInterval(fetchNotifCount, 90000) // refresh setiap 90 detik
+  try {
+    const res = await axios.get('/settings')
+    if (res.data && res.data.shop_name) {
+      ui.setShopName(res.data.shop_name)
+    }
+  } catch (e) {
+    console.error('Gagal memuat nama toko:', e)
+  }
 })
 
 onUnmounted(() => {

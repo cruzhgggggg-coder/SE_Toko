@@ -39,7 +39,7 @@ class ProductController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'sku' => 'required|string|max:255|unique:products,sku',
+            'sku' => 'nullable|string|max:255|unique:products,sku',
             'category' => 'nullable|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
             'supplier_id' => 'nullable|exists:suppliers,id',
@@ -49,7 +49,30 @@ class ProductController extends Controller
             'base_sell_price' => 'nullable|numeric|min:0',
         ]);
 
+        // Auto-generate SKU if not provided
+        if (empty($validated['sku'])) {
+            $prefix = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $validated['name']), 0, 3)) ?: 'PRD';
+            do {
+                $validated['sku'] = $prefix . '-' . strtoupper(substr(uniqid(), -5));
+            } while (Product::where('sku', $validated['sku'])->exists());
+        }
+
+        if (!empty($validated['category_id'])) {
+            $cat = \App\Models\Category::find($validated['category_id']);
+            if ($cat) {
+                $validated['category'] = $cat->name;
+            }
+        } elseif (!empty($validated['category'])) {
+            $cat = \App\Models\Category::firstOrCreate(['name' => $validated['category']]);
+            $validated['category_id'] = $cat->id;
+        } else {
+            $validated['category'] = 'Umum';
+            $cat = \App\Models\Category::firstOrCreate(['name' => 'Umum']);
+            $validated['category_id'] = $cat->id;
+        }
+
         $product = Product::create($validated);
+        $product->updateLowStockStatus();
 
         return response()->json($product, 201);
     }
@@ -85,6 +108,8 @@ class ProductController extends Controller
                 'user_id' => $request->user()->id,
                 'notes' => "Restock batch: {$validated['batch_number']}",
             ]);
+
+            $product->updateLowStockStatus();
 
             return response()->json($batch, 201);
         });
@@ -129,7 +154,18 @@ class ProductController extends Controller
             'base_sell_price' => 'nullable|numeric|min:0',
         ]);
 
+        if (!empty($validated['category_id'])) {
+            $cat = \App\Models\Category::find($validated['category_id']);
+            if ($cat) {
+                $validated['category'] = $cat->name;
+            }
+        } elseif (!empty($validated['category'])) {
+            $cat = \App\Models\Category::firstOrCreate(['name' => $validated['category']]);
+            $validated['category_id'] = $cat->id;
+        }
+
         $product->update($validated);
+        $product->updateLowStockStatus();
 
         return response()->json($product);
     }

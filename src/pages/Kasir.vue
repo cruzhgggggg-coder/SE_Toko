@@ -112,7 +112,13 @@
           <div class="item-card-actions">
             <div class="qty-control-box">
               <button class="qty-action" @click="changeQty(item.id, -1)"><i class="fas fa-minus"></i></button>
-              <span class="qty-number">{{ item.qty }}</span>
+              <input 
+                type="number" 
+                min="1" 
+                v-model.number="item.qty" 
+                @change="validateItemQty(item)" 
+                class="qty-input" 
+              />
               <button class="qty-action" @click="changeQty(item.id, 1)"><i class="fas fa-plus"></i></button>
             </div>
             <div class="item-meta-actions">
@@ -329,10 +335,24 @@ async function onPayConfirm(paymentData) {
   }
 }
 
+function validateItemQty(item) {
+  if (!item.qty || isNaN(item.qty) || item.qty < 1) {
+    item.qty = 1
+  }
+}
+
 async function onDebtConfirm(debtData) {
   try {
-    const customer = customerStore.customers.find(c => c.name.toLowerCase() === debtData.customerName.toLowerCase())
-    if (!customer) throw 'Pelanggan tidak ditemukan. Silakan tambahkan pelanggan terlebih dahulu.'
+    let customer = customerStore.customers.find(c => c.name.toLowerCase() === debtData.customerName.toLowerCase())
+    if (!customer) {
+      // Background register a new customer with a default limit of 5,000,000
+      customer = await customerStore.addCustomer({
+        name: debtData.customerName,
+        phone: '',
+        address: 'Registrasi POS Otomatis',
+        debt_limit: 5000000
+      })
+    }
     const payload = {
       customer_id: customer.id,
       payment_method: 'debt',
@@ -778,4 +798,24 @@ async function syncOffline() {
 
 .empty-cart-state i { font-size: 48px; }
 .empty-cart-state p { font-size: 14px; font-weight: 600; }
+
+.qty-input {
+  width: 50px;
+  background: transparent;
+  border: none;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0F172A;
+  outline: none;
+}
+/* remove arrows */
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.qty-input[type=number] {
+  -moz-appearance: textfield;
+}
 </style>

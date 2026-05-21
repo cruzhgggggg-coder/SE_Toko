@@ -51,6 +51,10 @@
         <option value="empty">Stok Habis</option>
         <option value="ok">Stok Aman</option>
       </select>
+      <button class="btn-manage-cat" @click="showCategoryManager = true">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        Kelola Kategori
+      </button>
     </div>
 
     <!-- Product Table -->
@@ -236,6 +240,70 @@
       </div>
     </div>
 
+    <!-- Category Manager Modal -->
+    <div v-if="showCategoryManager" class="modal-overlay">
+      <div class="modal-box" style="width: 500px;">
+        <div class="modal-header">
+          <h2 class="modal-title">Kelola Kategori</h2>
+          <button class="close-btn" @click="showCategoryManager = false">✕</button>
+        </div>
+        <div class="category-manager-content">
+          <!-- Add Category Form -->
+          <div class="add-category-form" style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <input 
+              v-model="newCategoryName" 
+              class="form-input" 
+              style="flex: 1;" 
+              placeholder="Nama kategori baru..." 
+              @keyup.enter="createCategory"
+            />
+            <button class="btn-confirm" style="padding: 10px 16px; flex: none;" @click="createCategory">Tambah</button>
+          </div>
+
+          <!-- Category List -->
+          <div class="category-list" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+            <div v-for="cat in categoriesList" :key="cat.id" class="category-item-row" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md);">
+              <span v-if="editingCategoryId !== cat.id" class="category-name-span" style="font-weight: 600; color: var(--color-text-primary);">{{ cat.name }}</span>
+              <input 
+                v-else 
+                v-model="editingCategoryName" 
+                class="form-input" 
+                style="padding: 4px 8px; font-size: 13px;" 
+                @keyup.enter="saveCategoryEdit(cat)"
+              />
+
+              <div class="category-action-btns" style="display: flex; gap: 6px;">
+                <button 
+                  v-if="editingCategoryId !== cat.id" 
+                  class="act-btn edit" 
+                  style="width: 26px; height: 26px;"
+                  @click="startCategoryEdit(cat)"
+                >
+                  <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button 
+                  v-else 
+                  class="act-btn restock" 
+                  style="width: 26px; height: 26px; background: #DCFCE7; color: #166534;"
+                  @click="saveCategoryEdit(cat)"
+                >
+                  ✓
+                </button>
+
+                <button 
+                  class="act-btn edit" 
+                  style="width: 26px; height: 26px; color: var(--color-danger); border-color: var(--color-danger-light);"
+                  @click="deleteCategory(cat.id)"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -259,14 +327,78 @@ function showToast(message, type = 'success') {
   toast.value = { show: true, message, type }
 }
 
-const categories = ['Beras', 'Minyak', 'Gula', 'Tepung', 'Mie & Pasta', 'Minuman', 'Sabun & Detergen', 'Rokok']
+// Dynamic Category Management State
+const showCategoryManager = ref(false)
+const categoriesList = ref([])
+const newCategoryName = ref('')
+const editingCategoryId = ref(null)
+const editingCategoryName = ref('')
+
+const fetchCategories = async () => {
+  try {
+    const response = await axios.get('/categories')
+    categoriesList.value = response.data
+    // Update default newProd category if list is not empty and current isn't in list
+    if (categoriesList.value.length > 0 && !categories.value.includes(newProd.value.category)) {
+      newProd.value.category = categories.value[0]
+    }
+  } catch (err) {
+    console.error('Error fetching categories:', err)
+  }
+}
+
+const createCategory = async () => {
+  if (!newCategoryName.value.trim()) return
+  try {
+    await axios.post('/categories', { name: newCategoryName.value.trim() })
+    newCategoryName.value = ''
+    await fetchCategories()
+    showToast('Kategori baru berhasil ditambahkan!')
+  } catch (err) {
+    console.error(err)
+    showToast(err.response?.data?.message || 'Gagal menambahkan kategori', 'error')
+  }
+}
+
+const startCategoryEdit = (cat) => {
+  editingCategoryId.value = cat.id
+  editingCategoryName.value = cat.name
+}
+
+const saveCategoryEdit = async (cat) => {
+  if (!editingCategoryName.value.trim()) return
+  try {
+    await axios.put(`/categories/${cat.id}`, { name: editingCategoryName.value.trim() })
+    editingCategoryId.value = null
+    await fetchCategories()
+    showToast('Kategori berhasil diperbarui!')
+  } catch (err) {
+    console.error(err)
+    showToast(err.response?.data?.message || 'Gagal memperbarui kategori', 'error')
+  }
+}
+
+const deleteCategory = async (id) => {
+  if (!confirm('Apakah Anda yakin ingin menghapus kategori ini?')) return
+  try {
+    await axios.delete(`/categories/${id}`)
+    await fetchCategories()
+    showToast('Kategori berhasil dihapus!')
+  } catch (err) {
+    console.error(err)
+    showToast(err.response?.data?.message || 'Gagal menghapus kategori', 'error')
+  }
+}
+
+const categories = computed(() => categoriesList.value.map(c => c.name))
 
 const newProd = ref({ name: '', sku: '', category: 'Beras', unit: 'kg', min_stock: 5 })
 const editData = ref({ id: null, name: '', sku: '', category: '', unit: '', min_stock: 0 })
 const restockData = ref({ batch_number: '', qty: 0, buy_price: 0, sell_price: 0, expired_date: '' })
 
-onMounted(() => {
-  inventoryStore.fetchProducts()
+onMounted(async () => {
+  await inventoryStore.fetchProducts()
+  await fetchCategories()
 })
 
 const filteredProducts = computed(() => {
@@ -337,7 +469,7 @@ async function saveProduct() {
   try {
     await inventoryStore.addProduct(newProd.value)
     showAdd.value = false
-    newProd.value = { name: '', sku: '', category: 'Beras', unit: 'kg', min_stock: 5 }
+    newProd.value = { name: '', sku: '', category: categories.value[0] || 'Beras', unit: 'kg', min_stock: 5 }
     showToast('Produk baru berhasil ditambahkan!')
   } catch (err) {
     showToast(String(err), 'error')
@@ -566,4 +698,21 @@ function formatNum(n) { return (n || 0).toLocaleString('id-ID') }
   transition: background var(--transition-fast);
 }
 .btn-confirm:hover { background: var(--color-primary-hover); }
+
+.btn-manage-cat {
+  display: flex; align-items: center; gap: 8px;
+  background: #F1F5F9; color: var(--color-text-secondary);
+  border: 1.5px solid var(--color-border);
+  padding: 12px 16px; border-radius: var(--radius-md);
+  font-size: var(--font-sm); font-weight: 600;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  height: 48px;
+  align-self: center;
+}
+.btn-manage-cat:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary-light);
+}
 </style>

@@ -44,7 +44,7 @@
                   <span class="item-name">{{ c.name }}</span>
                   <span class="item-phone">{{ c.phone || 'No Phone' }}</span>
                 </div>
-                <span class="item-debt" v-if="c.total_debt > 0">Utang: Rp {{ formatNum(c.total_debt) }}</span>
+                <span class="item-debt" v-if="c.current_debt > 0">Utang: Rp {{ formatNum(c.current_debt) }}</span>
               </div>
             </div>
           </div>
@@ -125,7 +125,7 @@ const overLimit = computed(() => {
   const c = customerStore.customers.find(c => c.name.toLowerCase() === customerName.value.toLowerCase())
   if (!c) return false
   const limit = c.debt_limit || defaultDebtLimit
-  return (c.total_debt + props.total) > limit
+  return (c.current_debt + props.total) > limit
 })
 
 function confirm() {

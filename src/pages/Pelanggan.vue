@@ -124,6 +124,10 @@
               <option>High Volume Buyer</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>Batas Hutang (Limit Kredit)</label>
+            <input v-model.number="newCust.debt_limit" class="form-input" type="number" placeholder="5000000" />
+          </div>
           <div class="modal-actions">
             <button class="btn-cancel" @click="showAdd = false">Batal</button>
             <button class="btn-confirm" @click="saveCustomer">Simpan Pelanggan</button>
@@ -142,9 +146,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useCustomerStore } from '@/stores/customer'
 
 const customerStore = useCustomerStore()
+const router = useRouter()
 
 const search = ref('')
 const filterStatus = ref('')
@@ -163,7 +169,7 @@ const customers = computed(() => customerStore.customers.map(c => ({
   tier: c.tier || 'Regular Customer'
 })))
 
-const newCust = ref({ name: '', phone: '', address: '', tier: 'New Customer' })
+const newCust = ref({ name: '', phone: '', address: '', tier: 'New Customer', debt_limit: 5000000 })
 
 const totalPiutang = computed(() => customers.value.reduce((s, c) => s + (c.debt || 0), 0))
 const totalPelanggan = computed(() => customers.value.length)
@@ -171,7 +177,7 @@ const pembayaranTertunda = computed(() => customers.value.filter(c => c.debt > 0
 
 const filteredCustomers = computed(() => {
   return customers.value.filter(c => {
-    const matchSearch = !search.value || c.name.toLowerCase().includes(search.value.toLowerCase()) || c.phone.includes(search.value)
+    const matchSearch = !search.value || c.name.toLowerCase().includes(search.value.toLowerCase()) || (c.phone || '').includes(search.value)
     const matchStatus = !filterStatus.value || c.status === filterStatus.value
     return matchSearch && matchStatus
   })
@@ -191,7 +197,9 @@ function stringToColor(str) {
 }
 
 function viewCustomer(c) { /* TODO */ }
-function payDebt(c) { /* TODO: open payment for debt */ }
+function payDebt(c) {
+  router.push(`/pelanggan/${c.id}/bayar`)
+}
 
 async function saveCustomer() {
   try {
@@ -199,10 +207,11 @@ async function saveCustomer() {
       name: newCust.value.name,
       phone: newCust.value.phone,
       address: newCust.value.address,
-      tier: newCust.value.tier
+      tier: newCust.value.tier,
+      debt_limit: newCust.value.debt_limit
     })
     showAdd.value = false
-    newCust.value = { name: '', phone: '', address: '', tier: 'New Customer' }
+    newCust.value = { name: '', phone: '', address: '', tier: 'New Customer', debt_limit: 5000000 }
   } catch (err) {
     alert(err)
   }

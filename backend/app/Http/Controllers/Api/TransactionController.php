@@ -149,6 +149,8 @@ class TransactionController extends Controller
                     'cost_price' => $averageCost,
                     'subtotal' => $item['qty'] * $item['price'],
                 ]);
+
+                $product->updateLowStockStatus();
             }
 
             // 5. Create Debt Record if applicable

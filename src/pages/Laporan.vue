@@ -6,19 +6,19 @@
         <p class="page-subtitle">Audit performa detail untuk operasional Terminal Toko Sembako</p>
       </div>
       <div class="header-actions">
-        <button class="btn-secondary">
+        <button class="btn-green" @click="$router.push('/')">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
           Kembali
         </button>
-        <button class="btn-secondary" @click="showDetailedReportModal = true">
+        <button class="btn-green" @click="showDetailedReportModal = true">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>
           Detail Penjualan
         </button>
-        <button class="btn-secondary" @click="saveDailyReport">
+        <button class="btn-green" @click="saveDailyReport">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Simpan Laporan Harian
         </button>
-        <button class="btn-export">
+        <button class="btn-green" @click="exportTransactions">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           Export Excel
         </button>
@@ -107,7 +107,7 @@
           + Rp {{ formatNum(Math.abs(tx.total_amount)) }}
         </span>
         <div class="action-btns text-center">
-          <button class="act-btn detail" @click="showDetail(tx)" title="Detail & Retur">
+          <button class="act-btn detail" @click="showDetail(tx)" title="Detail Transaksi">
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
           </button>
         </div>
@@ -141,7 +141,8 @@
         </div>
       </div>
     </div>
-    <!-- Detail / Retur Modal -->
+
+    <!-- Detail Modal -->
     <div v-if="showDetailModal" class="modal-overlay" @click.self="showDetailModal = false">
       <div class="modal-card detail-modal" style="width: 550px; max-width: 95vw;">
         <div class="modal-header">
@@ -151,52 +152,19 @@
         <div class="modal-body">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <p class="modal-desc" style="margin: 0;">Pelanggan: {{ selectedTx?.customer?.name || 'Umum' }} | Waktu: {{ formatDate(selectedTx?.transaction_date) }} {{ formatTime(selectedTx?.transaction_date) }}</p>
-            <button class="btn-primary" @click="reprintReceipt(selectedTx?.id)" style="padding: 6px 14px; font-size: 13px; display: flex; align-items: center; gap: 6px; background: #059669; border: none; color: #fff; border-radius: 8px; font-weight: 700; cursor: pointer;">
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-              Cetak Struk
-            </button>
           </div>
           <div class="table-card">
             <div class="table-head-row item-row">
               <span>PRODUK</span>
               <span>QTY</span>
               <span>SUBTOTAL</span>
-              <span class="text-center">AKSI</span>
             </div>
             <div v-for="item in selectedTx?.items" :key="item.id" class="table-data-row item-row">
               <span class="prod-name">{{ item.product?.name }}</span>
               <span>{{ item.qty }}</span>
               <span>Rp {{ formatNum(item.subtotal) }}</span>
-              <div class="text-center">
-                <button class="btn-secondary retur-btn" @click="openReturModal(item)" title="Retur Barang ini">Retur</button>
-              </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Retur Modal -->
-    <div v-if="showReturModal" class="modal-overlay" @click.self="showReturModal = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3>Retur Barang: {{ selectedItem?.product?.name }}</h3>
-          <button class="close-btn" @click="showReturModal = false">×</button>
-        </div>
-        <div class="modal-body">
-          <p class="modal-desc">Maksimal retur: {{ selectedItem?.qty }}</p>
-          <div class="form-group mb-3">
-            <label>Kuantitas Retur</label>
-            <input type="number" v-model.number="returForm.qty" :max="selectedItem?.qty" min="1" class="form-input" />
-          </div>
-          <div class="form-group mb-3">
-            <label>Alasan Retur</label>
-            <textarea v-model="returForm.reason" class="form-input" rows="3" placeholder="Barang rusak, dsb"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showReturModal = false">Batal</button>
-          <button class="btn-primary" @click="submitRetur">Proses Retur</button>
         </div>
       </div>
     </div>
@@ -255,6 +223,10 @@
           </div>
         </div>
         <div class="modal-footer">
+          <button class="btn-primary" @click="exportDetailedToExcel" style="background: #059669; border: none; font-weight: 600; color: #fff; cursor: pointer;">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 4px;"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Download Excel
+          </button>
           <button class="btn-secondary" @click="showDetailedReportModal = false">Tutup</button>
         </div>
       </div>
@@ -265,6 +237,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import axios from '@/plugins/axios'
+import { exportTransactionsExcel, exportDailyReportExcel, exportDetailedReportExcel } from '@/utils/excelExport'
 
 const startDate = ref('')
 const endDate = ref('')
@@ -287,14 +260,33 @@ const passwordError = ref('')
 const showDetailModal = ref(false)
 const selectedTx = ref(null)
 
-const showReturModal = ref(false)
-const selectedItem = ref(null)
-const returForm = ref({ qty: 1, reason: '' })
-
 const showDetailedReportModal = ref(false)
 const detailedReport = ref(null)
 
 const isLoading = ref(true)
+
+const dateRangeStr = computed(() => {
+  if (startDate.value && endDate.value) {
+    return `${startDate.value} sampai ${endDate.value}`
+  } else if (startDate.value) {
+    return `Sejak ${startDate.value}`
+  } else if (endDate.value) {
+    return `Hingga ${endDate.value}`
+  }
+  return 'Semua Periode'
+})
+
+const exportTransactions = () => {
+  exportTransactionsExcel(filteredTransactions.value, dateRangeStr.value)
+}
+
+const exportDetailedToExcel = () => {
+  if (detailedReport.value) {
+    exportDetailedReportExcel(detailedReport.value, dateRangeStr.value)
+  } else {
+    alert('Data tidak tersedia untuk diexport.')
+  }
+}
 
 const fetchData = async () => {
   await fetchTransactions()
@@ -333,38 +325,6 @@ const fetchTransactions = async () => {
 const showDetail = (tx) => {
   selectedTx.value = tx
   showDetailModal.value = true
-}
-
-const reprintReceipt = (id) => {
-  if (!id) return
-  window.open(`/print-receipt/${id}`, '_blank')
-}
-
-const openReturModal = (item) => {
-  selectedItem.value = item
-  returForm.value = { qty: 1, reason: '' }
-  showReturModal.value = true
-}
-
-const submitRetur = async () => {
-  try {
-    if (!returForm.value.reason) {
-      alert("Alasan retur harus diisi")
-      return
-    }
-    await axios.post('/returns', {
-      transaction_item_id: selectedItem.value.id,
-      qty: returForm.value.qty,
-      reason: returForm.value.reason
-    })
-    
-    alert('Retur berhasil diproses.')
-    showReturModal.value = false
-    showDetailModal.value = false
-    await fetchTransactions() // Refresh data
-  } catch (err) {
-    alert(err.response?.data?.message || 'Gagal memproses retur')
-  }
 }
 
 const fetchProfitReport = async () => {
@@ -408,6 +368,7 @@ const saveDailyReport = async () => {
     
     await axios.post('/financial-reports', genRes.data)
     alert(`Laporan harian tanggal ${dateToSave} berhasil disimpan secara permanen.`)
+    exportDailyReportExcel(genRes.data)
   } catch (error) {
     alert(error.response?.data?.message || 'Gagal menyimpan laporan harian. Mungkin sudah disimpan untuk tanggal ini.')
   }
@@ -486,13 +447,17 @@ onMounted(() => {
   color: var(--color-text-secondary); transition: all var(--transition-fast);
 }
 .btn-secondary:hover { border-color: var(--color-secondary); color: var(--color-secondary); }
-.btn-export {
+.btn-green {
   display: flex; align-items: center; gap: 6px;
-  padding: 10px 18px; background: var(--color-sidebar-bg); color: #fff;
+  padding: 10px 18px; background: var(--color-primary); color: #fff;
   border-radius: var(--radius-md); font-size: var(--font-sm); font-weight: 700;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast); border: none; cursor: pointer;
 }
-.btn-export:hover { background: #1E293B; }
+.btn-green:hover { background: var(--color-primary-hover); }
+
+.item-row {
+  grid-template-columns: 2fr 1fr 2fr !important;
+}
 
 /* Financial Cards */
 .fin-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); margin-bottom: var(--spacing-xl); }
