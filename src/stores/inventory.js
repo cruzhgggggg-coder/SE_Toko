@@ -11,12 +11,12 @@ export const useInventoryStore = defineStore('inventory', {
   actions: {
     async fetchProducts() {
       this.loading = true
+      this.error = null
       try {
         const response = await InventoryService.getAll()
         this.products = response.data.map(p => ({
           ...p,
-          price_ecer: p.batches?.[0]?.sell_price || 0,
-          price_grosir: p.batches?.[0]?.sell_price || 0,
+          price: p.batches?.[0]?.sell_price || p.base_sell_price || 0,
           stock: p.total_stock || 0
         }))
       } catch (err) {
@@ -57,6 +57,16 @@ export const useInventoryStore = defineStore('inventory', {
         throw err.response?.data?.message || 'Gagal menambah stok'
       }
     },
+
+    async deleteProduct(productId) {
+      try {
+        const response = await InventoryService.delete(productId)
+        this.products = this.products.filter(p => p.id !== productId)
+        return response.data
+      } catch (err) {
+        throw err.response?.data?.message || 'Gagal menghapus produk'
+      }
+    },
   },
 
   getters: {
@@ -64,7 +74,10 @@ export const useInventoryStore = defineStore('inventory', {
       const totalSKU = state.products.length
       const lowStock = state.products.filter(p => p.total_stock > 0 && p.total_stock <= p.min_stock).length
       const emptyStock = state.products.filter(p => p.total_stock === 0).length
-      const totalValue = state.products.reduce((acc, p) => acc + (p.total_stock * p.last_buy_price), 0)
+      const totalValue = state.products.reduce((acc, p) => {
+        const batchTotal = (p.batches || []).reduce((bAcc, b) => bAcc + ((b.current_qty || 0) * (b.buy_price || 0)), 0)
+        return acc + batchTotal
+      }, 0)
       
       return { totalSKU, lowStock, emptyStock, totalValue }
     }

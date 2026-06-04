@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Debt;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -14,10 +15,15 @@ class NotificationController extends Controller
     {
         $notifications = [];
 
+        // Get global low stock threshold from settings
+        $globalThreshold = Setting::where('key', 'low_stock_threshold')->value('value');
+        $globalThreshold = $globalThreshold ? (int) $globalThreshold : 10;
+
         // 1. Low Stock Notifications
         $lowStockProducts = Product::with(['stockBatches'])->get()
-            ->filter(function($product) {
-                return $product->stockBatches->sum('current_qty') <= $product->min_stock;
+            ->filter(function($product) use ($globalThreshold) {
+                $threshold = $product->min_stock > 0 ? $product->min_stock : $globalThreshold;
+                return $product->stockBatches->sum('current_qty') <= $threshold;
             });
 
         foreach ($lowStockProducts as $product) {

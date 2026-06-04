@@ -9,5 +9,8 @@ export const CustomerService = {
   },
   update(id, data) {
     return axios.put(`/customers/${id}`, data)
+  },
+  delete(id) {
+    return axios.delete(`/customers/${id}`)
   }
 }

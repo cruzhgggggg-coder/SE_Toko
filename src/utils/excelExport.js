@@ -88,10 +88,12 @@ export function exportDailyReportExcel(report) {
     ['Tanggal', report.report_date],
     ['Total Transaksi', report.total_transactions],
     ['Total Pemasukan (Omset)', report.total_revenue],
-    ['Pelunasan Piutang (Bayar Kasbon)', report.total_debt_payments || 0],
+    ['Total HPP (Modal)', report.total_cost || 0],
+    ['Laba Bersih', report.total_profit || 0],
+    ['Pelunasan Piutang (Bayar Kasbon)', report.debt_payments_received || 0],
     ['Hutang Baru Terbentuk', report.new_debt_amount || 0],
     ['Pengeluaran Operasional', report.expense_amount || 0],
-    ['Laba Bersih', report.net_income || report.total_profit]
+    ['Pendapatan Bersih', report.net_income || 0]
   ];
   
   const filename = `laporan_harian_${report.report_date}.csv`;

@@ -126,7 +126,10 @@
             <p class="upload-hint">Klik untuk Unggah</p>
             <p class="upload-sub">Format: PNG, JPG (Max 2MB)</p>
           </div>
-          <input ref="fileInput" type="file" accept="image/*" style="display:none" />
+          <input ref="fileInput" type="file" accept="image/*" style="display:none" @change="handleLogoUpload" />
+          <div v-if="logoPreview" class="logo-preview" style="margin-top: 12px;">
+            <img :src="logoPreview" alt="Logo Preview" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid var(--color-border);" />
+          </div>
         </div>
 
         <!-- Receipt Preview -->
@@ -146,7 +149,7 @@
 
     <!-- Footer Actions -->
     <div class="settings-footer">
-      <button class="btn-cancel-settings">Batalkan Perubahan</button>
+      <button class="btn-cancel-settings" @click="fetchSettings">Batalkan Perubahan</button>
       <button class="btn-save-all" @click="saveAll">Simpan Seluruh Pengaturan</button>
     </div>
 
@@ -174,8 +177,9 @@ import { useUIStore } from '@/stores/ui'
 import ToastNotification from '@/components/shared/ToastNotification.vue'
 
 const activeTab = ref('profile')
-const showSyncBadge = ref(true)
+const showSyncBadge = ref(false)
 const fileInput = ref(null)
+const logoPreview = ref(null)
 
 const authStore = useAuthStore()
 
@@ -191,7 +195,44 @@ const security = ref({ pinRequired: true, autoLock: false, activityLog: true })
 const toast = ref({ show: false, message: '', type: 'success' })
 
 function triggerFileInput() { fileInput.value?.click() }
-function savePassword() { toast.value = { show: true, message: 'Password berhasil diubah!', type: 'success' } }
+
+function handleLogoUpload(event) {
+  const file = event.target.files[0]
+  if (!file) return
+  if (file.size > 2 * 1024 * 1024) {
+    toast.value = { show: true, message: 'Ukuran file maksimal 2MB.', type: 'error' }
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    logoPreview.value = e.target.result
+  }
+  reader.readAsDataURL(file)
+  toast.value = { show: true, message: 'Logo berhasil dipilih. Klik Simpan untuk menyimpan.', type: 'success' }
+}
+
+async function savePassword() {
+  if (!passwords.value.current || !passwords.value.new) {
+    toast.value = { show: true, message: 'Password saat ini dan password baru wajib diisi.', type: 'error' }
+    return
+  }
+  if (passwords.value.new.length < 6) {
+    toast.value = { show: true, message: 'Password baru minimal 6 karakter.', type: 'error' }
+    return
+  }
+  try {
+    await axios.post('/settings', {
+      settings: {
+        password_current: passwords.value.current,
+        password_new: passwords.value.new
+      }
+    })
+    toast.value = { show: true, message: 'Password berhasil diubah!', type: 'success' }
+    passwords.value = { current: '', new: '' }
+  } catch (error) {
+    toast.value = { show: true, message: error.response?.data?.message || 'Gagal mengubah password.', type: 'error' }
+  }
+}
 
 async function fetchSettings() {
   try {
@@ -227,6 +268,9 @@ async function saveAll() {
     const uiStore = useUIStore()
     uiStore.setShopName(store.value.shop_name)
     
+    showSyncBadge.value = true
+    setTimeout(() => { showSyncBadge.value = false }, 3000)
+    
     toast.value = { show: true, message: 'Pengaturan Berhasil Disimpan', type: 'success' }
   } catch (error) {
     console.error('Failed to save settings:', error)
@@ -252,7 +296,7 @@ onMounted(() => {
   transition: all var(--transition-fast); background: #fff;
 }
 .settings-tab:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.settings-tab.active { background: var(--color-sidebar-bg); color: #fff; border-color: var(--color-sidebar-bg); }
+.settings-tab.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
 
 .settings-body { display: grid; grid-template-columns: 1fr 300px; gap: var(--spacing-lg); }
 .settings-main { display: flex; flex-direction: column; gap: var(--spacing-lg); }
@@ -291,11 +335,11 @@ onMounted(() => {
 
 .btn-save-pwd {
   width: 100%; padding: 12px;
-  background: var(--color-sidebar-bg); color: #fff;
+  background: var(--color-primary); color: #fff;
   border-radius: var(--radius-md); font-weight: 700;
   transition: background var(--transition-fast); margin-top: var(--spacing-sm);
 }
-.btn-save-pwd:hover { background: #1E293B; }
+.btn-save-pwd:hover { background: var(--color-primary-hover); }
 
 .btn-backup {
   display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -371,11 +415,11 @@ onMounted(() => {
 .btn-cancel-settings:hover { color: var(--color-danger); }
 .btn-save-all {
   padding: 12px 28px;
-  background: var(--color-sidebar-bg); color: #fff;
+  background: var(--color-primary); color: #fff;
   border-radius: var(--radius-md); font-weight: 700;
   transition: background var(--transition-fast);
 }
-.btn-save-all:hover { background: #1E293B; }
+.btn-save-all:hover { background: var(--color-primary-hover); }
 
 /* Sync Badge */
 .sync-badge {

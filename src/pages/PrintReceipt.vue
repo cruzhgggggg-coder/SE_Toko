@@ -107,11 +107,11 @@
               <template v-if="tx.payment_method !== 'debt'">
                 <div class="summary-row-flex">
                   <span>BAYAR ({{ getPaymentMethodLabel(tx.payment_method) }})</span>
-                  <span>Rp {{ formatNum(tx.total_amount) }}</span>
+                  <span>Rp {{ formatNum(tx.cash_paid || tx.total_amount) }}</span>
                 </div>
                 <div class="summary-row-flex">
                   <span>KEMBALIAN</span>
-                  <span>Rp 0</span>
+                  <span>Rp {{ formatNum(change) }}</span>
                 </div>
               </template>
               <template v-else>
@@ -177,11 +177,11 @@
       <template v-if="tx.payment_method !== 'debt'">
         <div class="summary-row-print">
           <span>Bayar ({{ getPaymentMethodLabel(tx.payment_method) }}):</span>
-          <span>Rp {{ formatNum(tx.total_amount) }}</span>
+          <span>Rp {{ formatNum(tx.cash_paid || tx.total_amount) }}</span>
         </div>
         <div class="summary-row-print">
           <span>Kembali:</span>
-          <span>Rp 0</span>
+          <span>Rp {{ formatNum(change) }}</span>
         </div>
       </template>
       <template v-else>
@@ -222,6 +222,11 @@ const subtotal = computed(() => {
 const discount = computed(() => {
   if (!tx.value) return 0
   return Math.max(0, subtotal.value - parseFloat(tx.value.total_amount))
+})
+
+const change = computed(() => {
+  if (!tx.value || !tx.value.cash_paid) return 0
+  return Math.max(0, parseFloat(tx.value.cash_paid) - parseFloat(tx.value.total_amount))
 })
 
 const loadTransaction = async () => {

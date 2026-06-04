@@ -71,8 +71,7 @@
 
               <div class="card-footer">
                 <div class="price-box">
-                  <p class="p-ecer">Rp {{ formatNum(product.price_ecer) }}</p>
-                  <p class="p-grosir">Grosir: Rp {{ formatNum(product.price_grosir) }}</p>
+                  <p class="p-price">Rp {{ formatNum(product.price) }}</p>
                 </div>
                 <button class="add-cart-btn" @click.stop="addToCart(product)">
                   <i class="fas fa-plus"></i>
@@ -97,16 +96,21 @@
           <p>Belum ada belanjaan</p>
         </div>
 
-        <div v-for="item in cart" :key="item.id" class="cart-item-card">
+        <div v-for="(item, index) in cart" :key="item.id" class="cart-item-card">
           <div class="item-card-header">
             <div class="item-main-info">
-              <h4 class="item-name">{{ item.name }}</h4>
-              <p class="item-sub-price">
-                RP {{ formatNum(item.isGrosir ? item.price_grosir : item.price_ecer) }} X {{ item.qty }} {{ item.unit }}
-              </p>
+              <div class="item-row-number" :class="getRowColorClass(index)">
+                <span>{{ index + 1 }}</span>
+              </div>
+              <div>
+                <h4 class="item-name">{{ item.name }}</h4>
+                <p class="item-sub-price">
+                  RP {{ formatNum(item.price) }} X {{ item.qty }} {{ item.unit }}
+                </p>
+              </div>
             </div>
             <div class="item-total-price">
-              Rp {{ formatNum((item.isGrosir ? item.price_grosir : item.price_ecer) * item.qty) }}
+              Rp {{ formatNum(item.price * item.qty) }}
             </div>
           </div>
           <div class="item-card-actions">
@@ -122,15 +126,8 @@
               <button class="qty-action" @click="changeQty(item.id, 1)"><i class="fas fa-plus"></i></button>
             </div>
             <div class="item-meta-actions">
-              <button class="delete-item-btn" @click="removeFromCart(item.id)">
-                <i class="far fa-trash-alt"></i>
-              </button>
-              <button 
-                class="grosir-toggle-btn" 
-                :class="{ active: item.isGrosir }"
-                @click="item.isGrosir = !item.isGrosir"
-              >
-                GROSIR
+              <button class="remove-item-btn" @click="removeFromCart(item.id)" title="Hapus dari keranjang">
+                <i class="fas fa-times"></i>
               </button>
             </div>
           </div>
@@ -184,7 +181,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useInventoryStore } from '@/stores/inventory'
 import { useTransactionStore } from '@/stores/transaction'
@@ -216,16 +213,21 @@ const printCashGiven = ref(0)
 const printChange = ref(0)
 const printPaymentMethod = ref('cash')
 
+function handleKeydown(e) {
+  if (e.key === 'F10' && cart.value.length > 0) {
+    e.preventDefault()
+    showPayment.value = true
+  }
+}
+
 onMounted(async () => {
   await inventoryStore.fetchProducts()
   await customerStore.fetchCustomers()
-  
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'F10' && cart.value.length > 0) {
-      e.preventDefault()
-      showPayment.value = true
-    }
-  })
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
 })
 
 const filteredGroups = computed(() => {
@@ -258,8 +260,7 @@ function addToCart(product) {
   } else {
     cart.value.push({ 
       ...product, 
-      qty: 1, 
-      isGrosir: false 
+      qty: 1
     })
   }
 }
@@ -277,8 +278,7 @@ function changeQty(id, delta) {
 }
 
 const subtotal = computed(() => cart.value.reduce((s, i) => {
-  const price = i.isGrosir ? i.price_grosir : i.price_ecer
-  return s + price * i.qty
+  return s + i.price * i.qty
 }, 0))
 
 const total = computed(() => Math.max(0, subtotal.value - discount.value))
@@ -296,10 +296,11 @@ async function onPayConfirm(paymentData) {
     const payload = {
       customer_id: null,
       payment_method: backendMethod,
+      cash_paid: paymentData.method === 'tunai' ? paymentData.cashPaid : null,
       items: cart.value.map(item => ({
         product_id: item.id,
-        qty: item.qty,
-        price: item.isGrosir ? item.price_grosir : item.price_ecer
+        qty: Math.floor(Number(item.qty)) || 1,
+        price: item.price
       }))
     }
     const response = await transactionStore.submitTransaction(payload)
@@ -338,7 +339,14 @@ async function onPayConfirm(paymentData) {
 function validateItemQty(item) {
   if (!item.qty || isNaN(item.qty) || item.qty < 1) {
     item.qty = 1
+  } else {
+    item.qty = Math.floor(item.qty)
   }
+}
+
+function getRowColorClass(index) {
+  const colors = ['row-color-1', 'row-color-2', 'row-color-3', 'row-color-4', 'row-color-5']
+  return colors[index % colors.length]
 }
 
 async function onDebtConfirm(debtData) {
@@ -358,8 +366,8 @@ async function onDebtConfirm(debtData) {
       payment_method: 'debt',
       items: cart.value.map(item => ({
         product_id: item.id,
-        qty: item.qty,
-        price: item.isGrosir ? item.price_grosir : item.price_ecer
+        qty: Math.floor(Number(item.qty)) || 1,
+        price: item.price
       })),
       notes: debtData.notes,
       due_date: debtData.dueDate
@@ -425,7 +433,8 @@ async function syncOffline() {
 }
 
 @media print {
-  .kasir-page {
+  .catalog-area,
+  .cart-sidebar {
     display: none !important;
   }
 }
@@ -609,8 +618,7 @@ async function syncOffline() {
 .stock-low { background: #FEF3C7; color: #92400E; }
 .stock-empty { background: #FEE2E2; color: #991B1B; }
 
-.price-box .p-ecer { font-size: 14px; font-weight: 800; color: #0F172A; }
-.price-box .p-grosir { font-size: 11px; font-weight: 700; color: #059669; }
+.price-box .p-price { font-size: 14px; font-weight: 800; color: #0F172A; }
 
 .add-cart-btn {
   width: 32px;
@@ -701,24 +709,41 @@ async function syncOffline() {
   gap: 12px;
 }
 
-.grosir-toggle-btn {
-  font-size: 9px;
-  font-weight: 800;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: #F1F5F9;
-  color: #94A3B8;
-  border: 1px solid #E2E8F0;
-}
-
-.grosir-toggle-btn.active {
-  background: #DCFCE7;
-  color: #059669;
-  border-color: #059669;
-}
-
 .delete-item-btn { color: #CBD5E1; }
 .delete-item-btn:hover { color: #EF4444; }
+
+.item-row-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.row-color-1 { background: #DCFCE7; color: #166534; }
+.row-color-2 { background: #DBEAFE; color: #1E40AF; }
+.row-color-3 { background: #FEF3C7; color: #92400E; }
+.row-color-4 { background: #F3E8FF; color: #6B21A8; }
+.row-color-5 { background: #FFE4E6; color: #9F1239; }
+
+.remove-item-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #CBD5E1;
+  font-size: 10px;
+  transition: all 0.15s;
+}
+.remove-item-btn:hover {
+  background: #FEE2E2;
+  color: #EF4444;
+}
 
 /* SUMMARY FOOTER */
 .cart-summary-footer {

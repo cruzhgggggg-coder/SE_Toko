@@ -14,8 +14,8 @@
       <div v-for="item in cart" :key="item.id" class="receipt-item">
         <p class="item-name">{{ item.name }}</p>
         <div class="item-calc">
-          <span>{{ item.qty }} {{ item.unit }} x {{ formatNum(item.isGrosir ? item.price_grosir : item.price_ecer) }}</span>
-          <span>{{ formatNum((item.isGrosir ? item.price_grosir : item.price_ecer) * item.qty) }}</span>
+          <span>{{ item.qty }} {{ item.unit }} x {{ formatNum(item.price) }}</span>
+          <span>{{ formatNum(item.price * item.qty) }}</span>
         </div>
       </div>
     </div>

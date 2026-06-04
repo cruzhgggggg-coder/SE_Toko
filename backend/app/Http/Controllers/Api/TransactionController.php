@@ -57,6 +57,7 @@ class TransactionController extends Controller
             'items.*.price' => 'required|numeric|min:0',
             'notes' => 'nullable|string',
             'due_date' => 'nullable|date',
+            'cash_paid' => 'nullable|numeric|min:0',
         ]);
 
         return DB::transaction(function () use ($request, $validated) {
@@ -68,7 +69,10 @@ class TransactionController extends Controller
                 $product = Product::findOrFail($item['product_id']);
                 $totalStock = $product->stockBatches()
                                       ->where('current_qty', '>', 0)
-                                      ->where('expired_date', '>', now())
+                                      ->where(function ($q) {
+                                          $q->where('expired_date', '>', now())
+                                            ->orWhereNull('expired_date');
+                                      })
                                       ->sum('current_qty');
 
                 if ($totalStock < $item['qty']) {
@@ -81,7 +85,7 @@ class TransactionController extends Controller
 
             // 2. Handle Debt Limit Check
             if ($validated['payment_method'] === 'debt') {
-                if (!$validated['customer_id']) {
+                if (empty($validated['customer_id'])) {
                     throw ValidationException::withMessages([
                         "customer_id" => ["Pelanggan harus dipilih untuk metode pembayaran hutang."]
                     ]);
@@ -98,8 +102,9 @@ class TransactionController extends Controller
             // 3. Create Transaction
             $transaction = Transaction::create([
                 'user_id' => $request->user()->id,
-                'customer_id' => $validated['customer_id'],
+                'customer_id' => $validated['customer_id'] ?? null,
                 'total_amount' => $totalAmount,
+                'cash_paid' => $validated['cash_paid'] ?? null,
                 'payment_method' => $validated['payment_method'],
                 'status' => 'completed',
                 'transaction_date' => now(),
@@ -114,8 +119,11 @@ class TransactionController extends Controller
                 
                 $batches = StockBatch::where('product_id', $item['product_id'])
                     ->where('current_qty', '>', 0)
-                    ->where('expired_date', '>', now())
-                    ->orderBy('expired_date', 'asc')
+                    ->where(function ($q) {
+                        $q->where('expired_date', '>', now())
+                          ->orWhereNull('expired_date');
+                    })
+                    ->orderByRaw('CASE WHEN expired_date IS NULL THEN 1 ELSE 0 END, expired_date ASC')
                     ->get();
 
                 foreach ($batches as $batch) {
@@ -158,7 +166,7 @@ class TransactionController extends Controller
                 Debt::create([
                     'customer_id' => $validated['customer_id'],
                     'transaction_id' => $transaction->id,
-                    'total_amount' => $totalAmount,
+                    'amount' => $totalAmount,
                     'remaining_amount' => $totalAmount,
                     'status' => 'unpaid',
                     'due_date' => $validated['due_date'] ?? now()->addDays(30),
@@ -180,12 +188,19 @@ class TransactionController extends Controller
             'end_date' => 'nullable|date',
         ]);
 
-        if (!Hash::check($request->password, $request->user()->password)) {
+        $owner = \App\Models\User::where('role', 'owner')->first();
+        $passwordHash = $owner ? $owner->password : $request->user()->password;
+
+        if (!Hash::check($request->password, $passwordHash)) {
             return response()->json(['message' => 'Password laporan salah.'], 403);
         }
 
-        $startDate = $request->start_date ?? now()->startOfMonth();
-        $endDate = $request->end_date ?? now()->endOfDay();
+        $startDate = $request->start_date 
+            ? \Carbon\Carbon::parse($request->start_date)->startOfDay()->toDateTimeString() 
+            : \Carbon\Carbon::now()->startOfMonth()->startOfDay()->toDateTimeString();
+        $endDate = $request->end_date 
+            ? \Carbon\Carbon::parse($request->end_date)->endOfDay()->toDateTimeString() 
+            : \Carbon\Carbon::now()->endOfDay()->toDateTimeString();
 
         $stats = TransactionItem::whereHas('transaction', function($query) use ($startDate, $endDate) {
                 $query->whereBetween('transaction_date', [$startDate, $endDate]);
@@ -208,8 +223,12 @@ class TransactionController extends Controller
 
     public function detailedReport(Request $request)
     {
-        $startDate = $request->start_date ?? now()->startOfMonth();
-        $endDate = $request->end_date ?? now()->endOfDay();
+        $startDate = $request->start_date 
+            ? \Carbon\Carbon::parse($request->start_date)->startOfDay()->toDateTimeString() 
+            : \Carbon\Carbon::now()->startOfMonth()->startOfDay()->toDateTimeString();
+        $endDate = $request->end_date 
+            ? \Carbon\Carbon::parse($request->end_date)->endOfDay()->toDateTimeString() 
+            : \Carbon\Carbon::now()->endOfDay()->toDateTimeString();
 
         // 1. Sales by Product
         $salesByProduct = TransactionItem::whereHas('transaction', function($query) use ($startDate, $endDate) {

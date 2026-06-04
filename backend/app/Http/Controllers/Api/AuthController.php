@@ -42,7 +42,7 @@ class AuthController extends Controller
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
-            'user' => $user,
+            'user' => $user->makeVisible([])->only('id', 'username', 'name', 'role'),
         ]);
     }
 
@@ -57,6 +57,6 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        return response()->json($request->user()->only('id', 'username', 'name', 'role'));
     }
 }

@@ -40,7 +40,7 @@
               </button>
             </div>
             <p class="notif-desc">{{ item.message }}</p>
-            <button class="notif-action-btn">RESTOCK SEKARANG →</button>
+            <button class="notif-action-btn" @click="$router.push('/inventory'); $emit('close')">RESTOCK SEKARANG →</button>
           </div>
         </div>
 
@@ -70,7 +70,7 @@
             </div>
             <p class="notif-desc">{{ item.message }}</p>
             <div class="notif-actions-row">
-              <button class="notif-danger-btn">BUANG</button>
+              <button class="notif-danger-btn" @click="dismissNotification(item)">BUANG</button>
             </div>
           </div>
         </div>

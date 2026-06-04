@@ -12,22 +12,23 @@ class FinancialReport extends Model
     protected $fillable = [
         'report_date',
         'total_revenue',
+        'total_cost',
         'total_profit',
-        'total_transactions',
-        'total_debt_payments',
+        'transaction_count',
         'new_debt_amount',
+        'debt_payments_received',
         'expense_amount',
         'net_income',
-        'metadata'
+        'created_by_user',
     ];
 
     protected $casts = [
         'report_date' => 'date',
-        'metadata' => 'array',
         'total_revenue' => 'decimal:2',
+        'total_cost' => 'decimal:2',
         'total_profit' => 'decimal:2',
-        'total_debt_payments' => 'decimal:2',
         'new_debt_amount' => 'decimal:2',
+        'debt_payments_received' => 'decimal:2',
         'expense_amount' => 'decimal:2',
         'net_income' => 'decimal:2',
     ];

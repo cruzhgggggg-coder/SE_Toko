@@ -55,7 +55,6 @@
           <div class="stat-icon light-orange">
             <i class="fas fa-chart-pie"></i>
           </div>
-          <span class="status-badge healthy">HEALTHY</span>
         </div>
         <div class="stat-info">
           <p class="stat-label">Net Margin</p>
@@ -292,14 +291,6 @@ onMounted(() => {
 .stat-trend.up { background: #DCFCE7; color: #166534; }
 .stat-trend.down { background: #FEE2E2; color: #991B1B; }
 
-.status-badge {
-  font-size: 10px;
-  font-weight: 800;
-  padding: 4px 10px;
-  border-radius: 100px;
-  letter-spacing: 0.5px;
-}
-.status-badge.healthy { background: #F1F5F9; color: #475569; border: 1px solid #E2E8F0; }
 
 .stat-label {
   font-size: 14px;
@@ -374,7 +365,7 @@ onMounted(() => {
 /* Bar Chart Container */
 .bar-chart-container {
   display: flex;
-  align-items: flex-end;
+  align-items: stretch;
   justify-content: space-between;
   height: 240px;
   padding-bottom: 20px;
@@ -386,6 +377,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  height: 100%;
 }
 
 .bar-stack {

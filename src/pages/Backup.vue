@@ -54,7 +54,7 @@
         <div class="section-card">
           <div class="log-header">
             <h3 class="log-title">LOG & RIWAYAT TRANSAKSI</h3>
-            <button class="btn-view-log">⏱ Lihat Log Detail</button>
+            <button class="btn-view-log" @click="showLogDetail = !showLogDetail">⏱ {{ showLogDetail ? 'Tutup Log' : 'Lihat Log Detail' }}</button>
           </div>
 
           <div v-for="file in backupFiles" :key="file.name" class="backup-file-row">
@@ -71,7 +71,7 @@
               <p class="file-date-val">{{ file.date }}</p>
               <span class="verified-badge">VERIFIED INTEGRITY</span>
             </div>
-            <button class="download-btn">
+            <button class="download-btn" @click="startBackup" title="Download Backup">
               <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </button>
           </div>
@@ -105,7 +105,7 @@
         <div class="sidebar-card">
           <h3 class="sidebar-section-title">Ekspor Tabel Data</h3>
           <p class="sidebar-desc">Buat laporan .xlsx universal untuk audit dan pelaporan offline.</p>
-          <button class="btn-export">
+          <button class="btn-export" @click="exportToExcel">
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             Ekspor ke Excel
           </button>
@@ -133,6 +133,7 @@ import { useAuthStore } from '../stores/auth'
 const isSyncing = ref(false)
 const progress = ref(0)
 const fileInput = ref(null)
+const showLogDetail = ref(false)
 
 const authStore = useAuthStore()
 
@@ -195,6 +196,24 @@ function handleRecovery(rec) {
   }
 }
 
+function exportToExcel() {
+  const rows = [
+    ['NAMA FILE', 'UKURAN', 'RECORDS', 'TANGGAL'],
+    ...backupFiles.map(f => [f.name, f.size, f.records, f.date])
+  ]
+  const BOM = '\uFEFF'
+  const csvContent = BOM + rows.map(r => r.map(c => String(c)).join(';')).join('\r\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `backup_log_${new Date().toISOString().split('T')[0]}.csv`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 async function handleFileUpload(event) {
   const file = event.target.files[0]
   if (!file) return
@@ -247,7 +266,7 @@ async function handleFileUpload(event) {
 .backup-page { max-width: 1100px; }
 
 .backup-header {
-  background: var(--color-sidebar-bg); color: #fff;
+  background: var(--color-primary); color: #fff;
   border-radius: var(--radius-lg); padding: 16px 24px;
   margin-bottom: var(--spacing-xl);
   display: flex; align-items: center; justify-content: space-between;
@@ -299,11 +318,11 @@ async function handleFileUpload(event) {
 .backup-action { display: flex; align-items: center; gap: var(--spacing-lg); }
 .btn-backup-now {
   display: flex; align-items: center; gap: 10px;
-  padding: 14px 24px; background: var(--color-sidebar-bg); color: #fff;
+  padding: 14px 24px; background: var(--color-primary); color: #fff;
   border-radius: var(--radius-md); font-weight: 700; font-size: var(--font-base);
   transition: background var(--transition-fast); white-space: nowrap;
 }
-.btn-backup-now:hover:not(:disabled) { background: #1E293B; }
+.btn-backup-now:hover:not(:disabled) { background: var(--color-primary-hover); }
 .btn-backup-now:disabled { opacity: 0.7; cursor: not-allowed; }
 
 .progress-col { display: flex; align-items: center; gap: 10px; }

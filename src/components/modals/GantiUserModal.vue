@@ -29,7 +29,7 @@
       </div>
 
       <div class="modal-footer">
-        <button class="btn-add-account">
+        <button class="btn-add-account" @click="$emit('close')">
           <i class="fas fa-user-plus"></i> Tambah Akun Lain
         </button>
       </div>

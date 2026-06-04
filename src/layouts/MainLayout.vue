@@ -3,7 +3,7 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <span class="sidebar-logo" v-html="formattedShopName"></span>
+        <span class="sidebar-logo">{{ formattedShopName }}</span>
         <span class="sidebar-role">{{ currentPage }}</span>
       </div>
 
@@ -81,7 +81,7 @@
             <div class="topbar-search">
               <i class="fas fa-search search-icon"></i>
               <input type="text" v-model="ui.searchQuery" :placeholder="searchPlaceholder" />
-              <button class="barcode-btn">
+              <button class="barcode-btn" @click="focusSearch" title="Cari Barcode">
                 <i class="fas fa-barcode"></i>
               </button>
             </div>
@@ -89,7 +89,7 @@
         </div>
 
         <div class="topbar-right">
-          <div v-if="route.name === 'Kasir'" class="offline-badge">
+          <div v-if="route.name === 'Kasir' && transactionStore.isOfflineMode" class="offline-badge">
             <i class="fas fa-wifi-slash"></i>
             <span>Offline Mode Active</span>
           </div>
@@ -143,7 +143,7 @@
     <!-- GANTI USER MODAL -->
     <GantiUserModal 
       v-if="showGantiUser" 
-      :currentUser="{ id: 1, name: 'Admin Utama' }"
+      :currentUser="auth.user || { id: 1, name: 'Admin Utama' }"
       @close="showGantiUser = false" 
       @select="handleUserChange"
     />
@@ -155,6 +155,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
+import { useTransactionStore } from '@/stores/transaction'
 import axios from '@/plugins/axios'
 import NotificationPanel from '@/components/shared/NotificationPanel.vue'
 import GantiUserModal from '@/components/modals/GantiUserModal.vue'
@@ -163,6 +164,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const ui = useUIStore()
+const transactionStore = useTransactionStore()
 
 const showNotification = ref(false)
 const showUserMenu = ref(false)
@@ -192,7 +194,7 @@ async function fetchNotifCount() {
 
 const formattedShopName = computed(() => {
   const name = ui.shopName || 'TOKO SUMBER MAKMUR'
-  return name.replace(/\s+/g, '<br />')
+  return name
 })
 
 onMounted(async () => {
@@ -246,6 +248,14 @@ function toggleNotification() {
 function toggleUserMenu() {
   showUserMenu.value = !showUserMenu.value
   showNotification.value = false
+}
+
+function focusSearch() {
+  const searchInput = document.querySelector('.topbar-search input')
+  if (searchInput) {
+    searchInput.focus()
+    searchInput.select()
+  }
 }
 
 function handleUserChange(user) {

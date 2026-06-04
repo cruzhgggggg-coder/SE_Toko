@@ -54,7 +54,6 @@
           <p class="fin-val locked">🔒 Terkunci</p>
           <button class="btn-unlock" @click="openPasswordModal">Buka Akses</button>
         </div>
-        <p class="fin-trend safe" v-if="isProfitUnlocked">✅ Keuntungan Aman</p>
       </div>
     </div>
 
@@ -92,7 +91,7 @@
         <span class="text-center">AKSI</span>
       </div>
 
-      <div v-for="tx in filteredTransactions" :key="tx.id" class="table-data-row">
+      <div v-for="tx in paginatedTransactions" :key="tx.id" class="table-data-row">
         <div class="date-col">
           <p class="tx-date">{{ formatDate(tx.transaction_date) }}</p>
           <p class="tx-time">{{ formatTime(tx.transaction_date) }} WIB</p>
@@ -114,11 +113,11 @@
       </div>
 
       <div class="table-footer">
-        <span>Menampilkan {{ filteredTransactions.length }} dari {{ transactions.length }} transaksi.</span>
+        <span>Menampilkan {{ paginatedTransactions.length }} dari {{ filteredTransactions.length }} transaksi (Halaman {{ currentPage }}/{{ totalPages }})</span>
         <div class="pagination">
-          <button class="page-btn">‹</button>
-          <button class="page-btn active">1</button>
-          <button class="page-btn">›</button>
+          <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--">‹</button>
+          <button v-for="page in visiblePages" :key="page" class="page-btn" :class="{ active: currentPage === page }" @click="currentPage = page">{{ page }}</button>
+          <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++">›</button>
         </div>
       </div>
     </div>
@@ -264,6 +263,8 @@ const showDetailedReportModal = ref(false)
 const detailedReport = ref(null)
 
 const isLoading = ref(true)
+const currentPage = ref(1)
+const perPage = 15
 
 const dateRangeStr = computed(() => {
   if (startDate.value && endDate.value) {
@@ -394,12 +395,14 @@ const submitPassword = async () => {
     stats.value.total_profit = res.data.total_profit
     
     savedPassword.value = adminPassword.value
+    sessionStorage.setItem('reportPassword', adminPassword.value)
     isProfitUnlocked.value = true
     showPasswordModal.value = false
   } catch (error) {
     passwordError.value = error.response?.data?.message || 'Password salah atau terjadi kesalahan.'
     isProfitUnlocked.value = false
     savedPassword.value = ''
+    sessionStorage.removeItem('reportPassword')
   }
 }
 
@@ -409,6 +412,28 @@ const filteredTransactions = computed(() => {
     const matchSearch = !txSearch.value || tx.id.toString().includes(txSearch.value)
     return matchMethod && matchSearch
   })
+})
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredTransactions.value.length / perPage)))
+
+const paginatedTransactions = computed(() => {
+  const start = (currentPage.value - 1) * perPage
+  return filteredTransactions.value.slice(start, start + perPage)
+})
+
+const visiblePages = computed(() => {
+  const pages = []
+  const total = totalPages.value
+  const current = currentPage.value
+  let start = Math.max(1, current - 2)
+  let end = Math.min(total, start + 4)
+  start = Math.max(1, end - 4)
+  for (let i = start; i <= end; i++) pages.push(i)
+  return pages
+})
+
+watch([methodFilter, txSearch, startDate, endDate], () => {
+  currentPage.value = 1
 })
 
 function formatNum(n) { return (n || 0).toLocaleString('id-ID') }
@@ -426,8 +451,12 @@ function formatTime(dateString) {
 }
 
 onMounted(() => {
-  fetchTransactions()
-  fetchProfitReport()
+  const stored = sessionStorage.getItem('reportPassword')
+  if (stored) {
+    savedPassword.value = stored
+    isProfitUnlocked.value = true
+  }
+  fetchData()
 })
 </script>
 
@@ -559,6 +588,7 @@ onMounted(() => {
 }
 .page-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .page-btn.active { background: var(--color-sidebar-bg); color: #fff; border-color: var(--color-sidebar-bg); }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Locked States */
 .locked { color: var(--color-text-muted) !important; font-size: var(--font-lg) !important; margin-bottom: 8px; }

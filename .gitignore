@@ -27,6 +27,7 @@ pnpm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+*.stackdump
 
 # Laravel Backend
 backend/vendor/
@@ -41,3 +42,5 @@ backend/database/*.sqlite
 backend/public/storage
 backend/storage/app/public/*
 !backend/storage/app/public/.gitignore
+backend/.phpunit.result.cache
+backend/composer_output.txt

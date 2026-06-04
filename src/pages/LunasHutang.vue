@@ -77,7 +77,7 @@
             <div class="debt-amounts">
               <div class="amount-block">
                 <span class="amount-label">Jumlah Awal</span>
-                <span class="amount-val">Rp {{ formatNum(d.total_amount) }}</span>
+                <span class="amount-val">Rp {{ formatNum(d.amount) }}</span>
               </div>
               <div class="amount-block">
                 <span class="amount-label">Sisa Hutang</span>

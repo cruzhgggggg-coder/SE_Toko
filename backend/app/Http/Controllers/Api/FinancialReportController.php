@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\FinancialReport;
 use App\Models\Transaction;
+use App\Models\TransactionItem;
 use App\Models\DebtPayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,27 +25,41 @@ class FinancialReportController extends Controller
     {
         $date = $request->get('date', Carbon::today()->toDateString());
         
-        $revenue = Transaction::whereDate('created_at', $date)->sum('total_amount');
-        $profit = Transaction::whereDate('created_at', $date)->sum('profit');
-        $count = Transaction::whereDate('created_at', $date)->count();
-        $debtPayments = DebtPayment::whereDate('payment_date', $date)->sum('amount');
-        
-        $newDebt = Transaction::whereDate('created_at', $date)
-            ->where('payment_method', 'debt')
-            ->sum(DB::raw('total_amount - paid_amount'));
+        $revenue = Transaction::whereDate('transaction_date', $date)->sum('total_amount');
 
-        // For now, expenses are just a placeholder or could be linked to a future Expenses table
-        $expenses = 0; 
+        $costData = TransactionItem::whereHas('transaction', function ($query) use ($date) {
+            $query->whereDate('transaction_date', $date);
+        })->select(
+            DB::raw('SUM(qty * cost_price) as total_cost'),
+            DB::raw('SUM(subtotal) as total_revenue_items')
+        )->first();
+
+        $totalCost = (float)($costData->total_cost ?? 0);
+        $totalRevenueItems = (float)($costData->total_revenue_items ?? 0);
+        $profit = $totalRevenueItems - $totalCost;
+
+        $count = Transaction::whereDate('transaction_date', $date)->count();
+
+        $debtPayments = DebtPayment::whereDate('payment_date', $date)->sum('amount');
+
+        $newDebt = Transaction::whereDate('transaction_date', $date)
+            ->where('payment_method', 'debt')
+            ->sum('total_amount');
+
+        $expenses = 0;
 
         return response()->json([
             'report_date' => $date,
-            'total_revenue' => $revenue,
-            'total_profit' => $profit,
+            'total_revenue' => (float)$revenue,
+            'total_cost' => $totalCost,
+            'total_profit' => (float)$profit,
             'total_transactions' => $count,
-            'total_debt_payments' => $debtPayments,
-            'new_debt_amount' => $newDebt,
-            'expense_amount' => $expenses,
-            'net_income' => ($revenue + $debtPayments) - $expenses
+            'transaction_count' => $count,
+            'debt_payments_received' => (float)$debtPayments,
+            'new_debt_amount' => (float)$newDebt,
+            'expense_amount' => (float)$expenses,
+            'net_income' => ((float)$revenue + (float)$debtPayments) - (float)$expenses,
+            'created_by_user' => $request->user()->name ?? 'system',
         ]);
     }
 
@@ -53,19 +68,25 @@ class FinancialReportController extends Controller
         $validated = $request->validate([
             'report_date' => 'required|date|unique:financial_reports,report_date',
             'total_revenue' => 'required|numeric',
+            'total_cost' => 'required|numeric',
             'total_profit' => 'required|numeric',
-            'total_transactions' => 'required|integer',
-            'total_debt_payments' => 'nullable|numeric',
+            'transaction_count' => 'required|integer',
             'new_debt_amount' => 'nullable|numeric',
+            'debt_payments_received' => 'nullable|numeric',
             'expense_amount' => 'nullable|numeric',
             'net_income' => 'required|numeric',
-            'metadata' => 'nullable|array'
+            'created_by_user' => 'nullable|string',
         ]);
+
+        $validated['new_debt_amount'] = $validated['new_debt_amount'] ?? 0;
+        $validated['debt_payments_received'] = $validated['debt_payments_received'] ?? 0;
+        $validated['expense_amount'] = $validated['expense_amount'] ?? 0;
+        $validated['created_by_user'] = $validated['created_by_user'] ?? $request->user()?->name ?? 'system';
 
         $report = FinancialReport::create($validated);
 
         return response()->json([
-            'message' => 'Financial report saved successfully',
+            'message' => 'Laporan harian berhasil disimpan secara permanen.',
             'data' => $report
         ], 201);
     }

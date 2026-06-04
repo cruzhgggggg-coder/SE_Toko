@@ -63,7 +63,7 @@
         <span class="col-product">PRODUK</span>
         <span>SKU</span>
         <span>KATEGORI</span>
-        <span>STOK SAAT INI</span>
+        <span class="text-center">STOK SAAT INI</span>
         <span>MIN. STOK</span>
         <span>HARGA BELI</span>
         <span>HARGA JUAL</span>
@@ -86,9 +86,6 @@
         <span class="cat-pill">{{ p.category }}</span>
         <div class="stock-cell">
           <span class="stock-num" :class="getStockClass(p.total_stock, p.min_stock)">{{ p.total_stock }}</span>
-          <div class="stock-bar-wrap">
-            <div class="stock-bar" :style="{ width: Math.min(100, (p.total_stock / (p.min_stock * 3)) * 100) + '%' }" :class="getStockClass(p.total_stock, p.min_stock)"></div>
-          </div>
         </div>
         <span class="min-stock">{{ p.min_stock }}</span>
         <span class="price-text">Rp {{ formatNum(p.batches?.[0]?.buy_price || 0) }}</span>
@@ -99,6 +96,9 @@
           </button>
           <button class="act-btn restock" @click="showRestock(p)" title="Restock">
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="act-btn delete" @click="deleteProduct(p)" title="Hapus Produk">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
           </button>
         </div>
       </div>
@@ -136,9 +136,15 @@
             </div>
             <div class="form-group">
               <label>Kategori</label>
-              <select v-model="newProd.category" class="form-input">
-                <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
-              </select>
+              <input 
+                v-model="newProd.category" 
+                class="form-input" 
+                list="category-suggestions" 
+                placeholder="Pilih atau ketik kategori..." 
+              />
+              <datalist id="category-suggestions">
+                <option v-for="cat in categories" :key="cat" :value="cat" />
+              </datalist>
             </div>
           </div>
           <div class="form-row">
@@ -150,6 +156,21 @@
               <label>Minimal Stok</label>
               <input v-model.number="newProd.min_stock" class="form-input" type="number" min="0" />
             </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Harga Beli (Rp)</label>
+              <input v-model.number="newProd.buy_price" class="form-input" type="number" min="0" />
+            </div>
+            <div class="form-group">
+              <label>Harga Jual (Rp)</label>
+              <input v-model.number="newProd.sell_price" class="form-input" type="number" min="0" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Stok Awal <span style="color: var(--color-danger);">*</span></label>
+            <input v-model.number="newProd.initial_stock" class="form-input" type="number" min="1" placeholder="Jumlah stok awal yang harus diisi" />
+            <small style="color: var(--color-text-muted); font-size: 11px; margin-top: 2px;">Wajib diisi. Stok awal akan menjadi batch pertama produk ini.</small>
           </div>
           <div class="modal-actions">
             <button class="btn-cancel" @click="showAdd = false">Batal</button>
@@ -179,9 +200,15 @@
           <div class="form-row">
             <div class="form-group">
               <label>Kategori</label>
-              <select v-model="editData.category" class="form-input">
-                <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
-              </select>
+              <input 
+                v-model="editData.category" 
+                class="form-input" 
+                list="edit-category-suggestions" 
+                placeholder="Pilih atau ketik kategori..." 
+              />
+              <datalist id="edit-category-suggestions">
+                <option v-for="cat in categories" :key="cat" :value="cat" />
+              </datalist>
             </div>
             <div class="form-group">
               <label>Satuan</label>
@@ -338,10 +365,6 @@ const fetchCategories = async () => {
   try {
     const response = await axios.get('/categories')
     categoriesList.value = response.data
-    // Update default newProd category if list is not empty and current isn't in list
-    if (categoriesList.value.length > 0 && !categories.value.includes(newProd.value.category)) {
-      newProd.value.category = categories.value[0]
-    }
   } catch (err) {
     console.error('Error fetching categories:', err)
   }
@@ -392,7 +415,7 @@ const deleteCategory = async (id) => {
 
 const categories = computed(() => categoriesList.value.map(c => c.name))
 
-const newProd = ref({ name: '', sku: '', category: 'Beras', unit: 'kg', min_stock: 5 })
+const newProd = ref({ name: '', sku: '', category: '', unit: 'kg', min_stock: 5, buy_price: 0, sell_price: 0, initial_stock: 1 })
 const editData = ref({ id: null, name: '', sku: '', category: '', unit: '', min_stock: 0 })
 const restockData = ref({ batch_number: '', qty: 0, buy_price: 0, sell_price: 0, expired_date: '' })
 
@@ -403,7 +426,7 @@ onMounted(async () => {
 
 const filteredProducts = computed(() => {
   return inventoryStore.products.filter(p => {
-    const matchSearch = !search.value || p.name.toLowerCase().includes(search.value.toLowerCase()) || p.sku.toLowerCase().includes(search.value.toLowerCase())
+    const matchSearch = !search.value || p.name.toLowerCase().includes(search.value.toLowerCase()) || (p.sku || '').toLowerCase().includes(search.value.toLowerCase())
     const matchCat = !filterCat.value || p.category === filterCat.value
     const matchStock = !filterStock.value ||
       (filterStock.value === 'empty' && p.total_stock === 0) ||
@@ -418,6 +441,7 @@ function getStockClass(stock, min) {
   if (stock <= min) return 'low'
   return 'ok'
 }
+
 
 function editProduct(p) {
   editData.value = {
@@ -466,17 +490,47 @@ async function handleRestock() {
 }
 
 async function saveProduct() {
+  if (!newProd.value.name || !newProd.value.name.trim()) {
+    showToast('Nama produk wajib diisi.', 'error')
+    return
+  }
+  if (!newProd.value.initial_stock || newProd.value.initial_stock < 1) {
+    showToast('Stok awal wajib diisi minimal 1.', 'error')
+    return
+  }
   try {
-    await inventoryStore.addProduct(newProd.value)
+    const productData = {
+      name: newProd.value.name,
+      sku: newProd.value.sku,
+      category: newProd.value.category,
+      unit: newProd.value.unit,
+      min_stock: newProd.value.min_stock,
+      base_buy_price: newProd.value.buy_price || 0,
+      base_sell_price: newProd.value.sell_price || 0,
+      initial_stock: newProd.value.initial_stock
+    }
+    await inventoryStore.addProduct(productData)
+    await inventoryStore.fetchProducts()
+    
     showAdd.value = false
-    newProd.value = { name: '', sku: '', category: categories.value[0] || 'Beras', unit: 'kg', min_stock: 5 }
-    showToast('Produk baru berhasil ditambahkan!')
+    newProd.value = { name: '', sku: '', category: '', unit: 'kg', min_stock: 5, buy_price: 0, sell_price: 0, initial_stock: 1 }
+    showToast('Produk baru berhasil ditambahkan dengan stok awal!')
   } catch (err) {
     showToast(String(err), 'error')
   }
 }
 
 function formatNum(n) { return (n || 0).toLocaleString('id-ID') }
+
+async function deleteProduct(p) {
+  if (!confirm(`Apakah Anda yakin ingin menghapus "${p.name}"?`)) return
+  try {
+    await inventoryStore.deleteProduct(p.id)
+    showToast('Produk berhasil dihapus!')
+  } catch (err) {
+    showToast(String(err), 'error')
+  }
+}
 </script>
 
 
@@ -604,22 +658,12 @@ function formatNum(n) { return (n || 0).toLocaleString('id-ID') }
   color: var(--color-text-secondary);
 }
 
-.stock-cell { display: flex; flex-direction: column; gap: 4px; }
+.stock-cell { display: flex; align-items: center; justify-content: center; text-align: center; }
+.text-center { text-align: center; }
 .stock-num { font-size: var(--font-base); font-weight: 700; }
 .stock-num.ok    { color: var(--color-primary); }
 .stock-num.low   { color: var(--color-warning); }
 .stock-num.empty { color: var(--color-danger); }
-.stock-bar-wrap {
-  height: 4px;
-  background: #F1F5F9;
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  width: 60px;
-}
-.stock-bar { height: 100%; border-radius: var(--radius-full); transition: width 0.3s ease; }
-.stock-bar.ok    { background: var(--color-primary); }
-.stock-bar.low   { background: var(--color-warning); }
-.stock-bar.empty { background: var(--color-danger); width: 100% !important; }
 
 .min-stock  { font-size: var(--font-sm); color: var(--color-text-muted); }
 .price-text { font-size: var(--font-sm); font-weight: 600; color: var(--color-text-secondary); }
@@ -636,6 +680,8 @@ function formatNum(n) { return (n || 0).toLocaleString('id-ID') }
 .act-btn.edit:hover { border-color: var(--color-secondary); color: var(--color-secondary); }
 .act-btn.restock { border: 1px solid var(--color-primary-light); color: var(--color-primary); background: var(--color-primary-light); }
 .act-btn.restock:hover { background: var(--color-primary); color: #fff; }
+.act-btn.delete { border: 1px solid var(--color-danger-light); color: var(--color-danger); background: var(--color-danger-light); }
+.act-btn.delete:hover { background: var(--color-danger); color: #fff; }
 
 .table-footer {
   padding: 14px 20px;

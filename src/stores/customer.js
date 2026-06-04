@@ -35,13 +35,22 @@ export const useCustomerStore = defineStore('customer', {
     async updateCustomer(id, customerData) {
       try {
         const response = await CustomerService.update(id, customerData)
-        const index = this.customers.findIndex(c => c.id === id)
+        const index = this.customers.findIndex(c => String(c.id) === String(id))
         if (index !== -1) {
           this.customers[index] = response.data
         }
         return response.data
       } catch (err) {
         throw err.response?.data?.message || 'Gagal mengubah data pelanggan'
+      }
+    },
+    async deleteCustomer(id) {
+      try {
+        const response = await CustomerService.delete(id)
+        this.customers = this.customers.filter(c => String(c.id) !== String(id))
+        return response.data
+      } catch (err) {
+        throw err.response?.data?.message || 'Gagal menghapus pelanggan'
       }
     }
   }

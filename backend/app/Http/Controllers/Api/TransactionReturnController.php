@@ -57,11 +57,10 @@ class TransactionReturnController extends Controller
                 'product_id' => $product->id,
                 'batch_number' => 'RET-' . now()->format('Ymd') . '-' . $returnRecord->id,
                 'buy_price' => $transactionItem->cost_price,
-                'initial_qty' => $validated['qty'],
+                'sell_price' => $transactionItem->price,
+                'qty' => $validated['qty'],
                 'current_qty' => $validated['qty'],
                 'expired_date' => now()->addMonths(6), // Assumption for returned goods
-                'status' => 'available',
-                'supplier_id' => null,
             ]);
 
             // Create log

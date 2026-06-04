@@ -47,6 +47,7 @@ class ProductController extends Controller
             'min_stock' => 'required|integer|min:0',
             'base_buy_price' => 'nullable|numeric|min:0',
             'base_sell_price' => 'nullable|numeric|min:0',
+            'initial_stock' => 'nullable|integer|min:0',
         ]);
 
         // Auto-generate SKU if not provided
@@ -71,15 +72,44 @@ class ProductController extends Controller
             $validated['category_id'] = $cat->id;
         }
 
-        $product = Product::create($validated);
-        $product->updateLowStockStatus();
+        return DB::transaction(function () use ($validated, $request) {
+            $product = Product::create($validated);
 
-        return response()->json($product, 201);
+            $initialStock = $request->input('initial_stock', 0);
+            if ($initialStock > 0) {
+                $batch = $product->stockBatches()->create([
+                    'batch_number' => 'INIT-' . time(),
+                    'qty' => $initialStock,
+                    'current_qty' => $initialStock,
+                    'buy_price' => $request->input('base_buy_price', 0),
+                    'sell_price' => $request->input('base_sell_price', 0),
+                ]);
+
+                $product->stockLogs()->create([
+                    'stock_batch_id' => $batch->id,
+                    'type' => 'RESTOCK',
+                    'quantity' => $initialStock,
+                    'user_id' => $request->user()?->id ?? 1,
+                    'notes' => "Initial stock batch",
+                ]);
+            }
+
+            $product->updateLowStockStatus();
+
+            return response()->json($product, 201);
+        });
     }
 
     public function addStock(Request $request, string $id)
     {
         $product = Product::findOrFail($id);
+
+        if ($request->has('expired_date') && $request->expired_date === '') {
+            $request->merge(['expired_date' => null]);
+        }
+        if ($request->has('rack_location') && $request->rack_location === '') {
+            $request->merge(['rack_location' => null]);
+        }
 
         $validated = $request->validate([
             'batch_number' => 'required|string|max:255',
@@ -97,15 +127,15 @@ class ProductController extends Controller
                 'current_qty' => $validated['qty'],
                 'buy_price' => $validated['buy_price'],
                 'sell_price' => $validated['sell_price'],
-                'expired_date' => $validated['expired_date'],
-                'rack_location' => $validated['rack_location'] ?? null,
+                'expired_date' => $request->input('expired_date'),
+                'rack_location' => $request->input('rack_location'),
             ]);
 
             $product->stockLogs()->create([
                 'stock_batch_id' => $batch->id,
                 'type' => 'RESTOCK',
                 'quantity' => $validated['qty'],
-                'user_id' => $request->user()->id,
+                'user_id' => $request->user()?->id ?? 1,
                 'notes' => "Restock batch: {$validated['batch_number']}",
             ]);
 
