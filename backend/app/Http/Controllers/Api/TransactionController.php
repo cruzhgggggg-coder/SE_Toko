@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers\Api;
 
@@ -20,20 +20,22 @@ class TransactionController extends Controller
     {
         $query = Transaction::with(['user', 'customer', 'items.product']);
 
-        if ($request->start_date) {
+        if ($request->filled('start_date')) {
             $query->where('transaction_date', '>=', $request->start_date);
         }
 
-        if ($request->end_date) {
+        if ($request->filled('end_date')) {
             $query->where('transaction_date', '<=', $request->end_date . ' 23:59:59');
         }
 
-        if ($request->customer_id) {
-            $query->where('customer_id', $request->customer_id);
+        if ($request->filled('customer_id') && is_numeric($request->customer_id)) {
+            $query->where('customer_id', (int) $request->customer_id);
         }
 
-        if ($request->search) {
-            $query->where('id', 'LIKE', "%{$request->search}%");
+        // FIX: Escape LIKE wildcards to prevent SQL LIKE injection
+        if ($request->filled('search')) {
+            $search = addcslashes($request->input('search'), '%_\\');
+            $query->where('id', 'LIKE', "%{$search}%");
         }
 
         $transactions = $query->orderBy('transaction_date', 'desc')->get();
@@ -42,6 +44,10 @@ class TransactionController extends Controller
 
     public function show($id)
     {
+        if (!is_numeric($id)) {
+            return response()->json(['message' => 'ID transaksi tidak valid.'], 422);
+        }
+
         $transaction = Transaction::with(['user', 'customer', 'items.product'])->findOrFail($id);
         return response()->json($transaction);
     }
@@ -53,27 +59,29 @@ class TransactionController extends Controller
             'payment_method' => 'required|string|in:cash,transfer,debt',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
-            'items.*.qty' => 'required|integer|min:1',
-            'items.*.price' => 'required|numeric|min:0',
-            'notes' => 'nullable|string',
-            'due_date' => 'nullable|date',
-            'cash_paid' => 'nullable|numeric|min:0',
+            'items.*.qty' => 'required|integer|min:1|max:10000',
+            'items.*.price' => 'required|numeric|min:0|max:999999999',
+            'notes' => 'nullable|string|max:500',
+            'due_date' => 'nullable|date|after_or_equal:today',
+            'cash_paid' => 'nullable|numeric|min:0|max:999999999',
         ]);
 
         return DB::transaction(function () use ($request, $validated) {
             $totalAmount = 0;
             $itemsData = [];
 
-            // 1. Pre-verify stock (ignore expired)
+            // 1. Pre-verify stock with pessimistic locking to prevent race conditions
             foreach ($validated['items'] as $item) {
-                $product = Product::findOrFail($item['product_id']);
+                $product = Product::lockForUpdate()->findOrFail($item['product_id']);
+
                 $totalStock = $product->stockBatches()
-                                      ->where('current_qty', '>', 0)
-                                      ->where(function ($q) {
-                                          $q->where('expired_date', '>', now())
-                                            ->orWhereNull('expired_date');
-                                      })
-                                      ->sum('current_qty');
+                    ->where('current_qty', '>', 0)
+                    ->where(function ($q) {
+                        $q->where('expired_date', '>', now())
+                          ->orWhereNull('expired_date');
+                    })
+                    ->lockForUpdate()
+                    ->sum('current_qty');
 
                 if ($totalStock < $item['qty']) {
                     throw ValidationException::withMessages([
@@ -91,7 +99,7 @@ class TransactionController extends Controller
                     ]);
                 }
 
-                $customer = Customer::findOrFail($validated['customer_id']);
+                $customer = Customer::lockForUpdate()->findOrFail($validated['customer_id']);
                 if ($customer->current_debt + $totalAmount > $customer->debt_limit) {
                     throw ValidationException::withMessages([
                         "payment_method" => ["Limit hutang pelanggan tidak mencukupi."]
@@ -111,12 +119,12 @@ class TransactionController extends Controller
                 'notes' => $validated['notes'] ?? null,
             ]);
 
-            // 4. Reduce Stock (FIFO) and calculate cost
+            // 4. Reduce Stock (FIFO) with locked batches to prevent race conditions
             foreach ($validated['items'] as $item) {
                 $qtyToReduce = $item['qty'];
                 $totalCostForItem = 0;
                 $product = Product::findOrFail($item['product_id']);
-                
+
                 $batches = StockBatch::where('product_id', $item['product_id'])
                     ->where('current_qty', '>', 0)
                     ->where(function ($q) {
@@ -124,6 +132,7 @@ class TransactionController extends Controller
                           ->orWhereNull('expired_date');
                     })
                     ->orderByRaw('CASE WHEN expired_date IS NULL THEN 1 ELSE 0 END, expired_date ASC')
+                    ->lockForUpdate()
                     ->get();
 
                 foreach ($batches as $batch) {
@@ -131,10 +140,9 @@ class TransactionController extends Controller
 
                     $deduct = min($batch->current_qty, $qtyToReduce);
                     $batch->decrement('current_qty', $deduct);
-                    
+
                     $totalCostForItem += $deduct * $batch->buy_price;
 
-                    // Log stock reduction per batch
                     $product->stockLogs()->create([
                         'stock_batch_id' => $batch->id,
                         'type' => 'SALE',
@@ -147,7 +155,8 @@ class TransactionController extends Controller
                     $qtyToReduce -= $deduct;
                 }
 
-                $averageCost = $totalCostForItem / $item['qty'];
+                // Prevent division by zero
+                $averageCost = $item['qty'] > 0 ? $totalCostForItem / $item['qty'] : 0;
 
                 TransactionItem::create([
                     'transaction_id' => $transaction->id,
@@ -195,11 +204,11 @@ class TransactionController extends Controller
             return response()->json(['message' => 'Password laporan salah.'], 403);
         }
 
-        $startDate = $request->start_date 
-            ? \Carbon\Carbon::parse($request->start_date)->startOfDay()->toDateTimeString() 
+        $startDate = $request->start_date
+            ? \Carbon\Carbon::parse($request->start_date)->startOfDay()->toDateTimeString()
             : \Carbon\Carbon::now()->startOfMonth()->startOfDay()->toDateTimeString();
-        $endDate = $request->end_date 
-            ? \Carbon\Carbon::parse($request->end_date)->endOfDay()->toDateTimeString() 
+        $endDate = $request->end_date
+            ? \Carbon\Carbon::parse($request->end_date)->endOfDay()->toDateTimeString()
             : \Carbon\Carbon::now()->endOfDay()->toDateTimeString();
 
         $stats = TransactionItem::whereHas('transaction', function($query) use ($startDate, $endDate) {
@@ -213,9 +222,9 @@ class TransactionController extends Controller
             ->first();
 
         return response()->json([
-            'total_revenue' => (float)$stats->total_revenue,
-            'total_cost' => (float)$stats->total_cost,
-            'total_profit' => (float)$stats->total_profit,
+            'total_revenue' => (float)($stats->total_revenue ?? 0),
+            'total_cost' => (float)($stats->total_cost ?? 0),
+            'total_profit' => (float)($stats->total_profit ?? 0),
             'start_date' => $startDate,
             'end_date' => $endDate,
         ]);
@@ -223,11 +232,11 @@ class TransactionController extends Controller
 
     public function detailedReport(Request $request)
     {
-        $startDate = $request->start_date 
-            ? \Carbon\Carbon::parse($request->start_date)->startOfDay()->toDateTimeString() 
+        $startDate = $request->start_date
+            ? \Carbon\Carbon::parse($request->start_date)->startOfDay()->toDateTimeString()
             : \Carbon\Carbon::now()->startOfMonth()->startOfDay()->toDateTimeString();
-        $endDate = $request->end_date 
-            ? \Carbon\Carbon::parse($request->end_date)->endOfDay()->toDateTimeString() 
+        $endDate = $request->end_date
+            ? \Carbon\Carbon::parse($request->end_date)->endOfDay()->toDateTimeString()
             : \Carbon\Carbon::now()->endOfDay()->toDateTimeString();
 
         // 1. Sales by Product

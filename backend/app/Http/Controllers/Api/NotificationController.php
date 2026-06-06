@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers\Api;
 
@@ -19,15 +19,21 @@ class NotificationController extends Controller
         $globalThreshold = Setting::where('key', 'low_stock_threshold')->value('value');
         $globalThreshold = $globalThreshold ? (int) $globalThreshold : 10;
 
-        // 1. Low Stock Notifications
-        $lowStockProducts = Product::with(['stockBatches'])->get()
-            ->filter(function($product) use ($globalThreshold) {
-                $threshold = $product->min_stock > 0 ? $product->min_stock : $globalThreshold;
-                return $product->stockBatches->sum('current_qty') <= $threshold;
-            });
+        // 1. Low Stock Notifications — optimized with database-level aggregation
+        $lowStockProducts = DB::select('
+            SELECT p.id, p.name, p.unit, p.min_stock,
+                   COALESCE(SUM(sb.current_qty), 0) as total_stock
+            FROM products p
+            LEFT JOIN stock_batches sb ON sb.product_id = p.id AND sb.current_qty > 0
+            GROUP BY p.id, p.name, p.unit, p.min_stock
+            HAVING total_stock <= CASE
+                WHEN p.min_stock > 0 THEN p.min_stock
+                ELSE ?
+            END
+        ', [$globalThreshold]);
 
         foreach ($lowStockProducts as $product) {
-            $totalStock = $product->stockBatches->sum('current_qty');
+            $totalStock = (int) $product->total_stock;
             $notifications[] = [
                 'type' => 'LOW_STOCK',
                 'title' => 'Stok Menipis',
@@ -43,33 +49,46 @@ class NotificationController extends Controller
             ->where('stock_batches.current_qty', '>', 0)
             ->whereNotNull('stock_batches.expired_date')
             ->where('stock_batches.expired_date', '<=', now()->addDays(30))
-            ->select('products.name', 'stock_batches.expired_date', 'stock_batches.batch_number')
+            ->select(
+                'products.id as product_id',
+                'products.name',
+                'stock_batches.id as stock_batch_id',
+                'stock_batches.expired_date',
+                'stock_batches.batch_number'
+            )
             ->get();
 
         foreach ($nearExpiryBatches as $batch) {
-            $daysLeft = now()->diffInDays($batch->expired_date, false);
+            $daysLeft = max(0, (int) now()->diffInDays($batch->expired_date, false));
             $notifications[] = [
                 'type' => 'EXPIRY',
                 'title' => 'Produk Hampir Kedaluwarsa',
                 'message' => "Produk {$batch->name} (Batch: {$batch->batch_number}) akan kedaluwarsa dalam {$daysLeft} hari.",
+                'product_id' => $batch->product_id,
+                'stock_batch_id' => $batch->stock_batch_id,
+                'batch_number' => $batch->batch_number,
                 'severity' => $daysLeft <= 7 ? 'high' : 'medium',
             ];
         }
 
-        // 3. Overdue Debts
+        // 3. Overdue Debts — with limit to prevent excessive notifications
         $overdueDebts = Debt::with('customer')
             ->where('status', 'unpaid')
             ->where('due_date', '<', now())
+            ->limit(50)
             ->get();
 
         foreach ($overdueDebts as $debt) {
-            $notifications[] = [
-                'type' => 'OVERDUE_DEBT',
-                'title' => 'Hutang Lewat Jatuh Tempo',
-                'message' => "Hutang pelanggan {$debt->customer->name} sebesar " . number_format($debt->remaining_amount) . " telah melewati jatuh tempo.",
-                'customer_id' => $debt->customer_id,
-                'severity' => 'high',
-            ];
+            if ($debt->customer) {
+                $notifications[] = [
+                    'type' => 'OVERDUE_DEBT',
+                    'title' => 'Hutang Lewat Jatuh Tempo',
+                    'message' => "Hutang pelanggan {$debt->customer->name} sebesar " .
+                                 number_format($debt->remaining_amount) . " telah melewati jatuh tempo.",
+                    'customer_id' => $debt->customer_id,
+                    'severity' => 'high',
+                ];
+            }
         }
 
         return response()->json($notifications);

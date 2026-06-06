@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers\Api;
 
@@ -18,9 +18,9 @@ class CustomerController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
+            'address' => 'nullable|string|max:500',
             'tier' => 'nullable|string|max:100',
-            'debt_limit' => 'nullable|numeric|min:0',
+            'debt_limit' => 'nullable|numeric|min:0|max:999999999',
         ]);
 
         if (!isset($validated['debt_limit']) || is_null($validated['debt_limit'])) {
@@ -34,6 +34,10 @@ class CustomerController extends Controller
 
     public function show(string $id)
     {
+        if (!is_numeric($id)) {
+            return response()->json(['message' => 'ID pelanggan tidak valid.'], 422);
+        }
+
         $customer = Customer::with(['debts', 'transactions'])->findOrFail($id);
         return response()->json($customer);
     }
@@ -41,20 +45,25 @@ class CustomerController extends Controller
     public function update(Request $request, string $id)
     {
         $customer = Customer::findOrFail($id);
-        
+
         $validated = $request->validate([
-            'name' => 'string|max:255',
+            'name' => 'sometimes|string|max:255',
             'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
+            'address' => 'nullable|string|max:500',
             'tier' => 'nullable|string|max:100',
-            'debt_limit' => 'numeric|min:0',
-            'is_active' => 'boolean'
+            'debt_limit' => 'sometimes|numeric|min:0|max:999999999',
+            'is_active' => 'sometimes|boolean'
         ]);
 
-        $customer->update($validated);
+        // CRITICAL: Explicitly whitelist safe fields — NEVER allow current_debt via API
+        $safeFields = ['name', 'phone', 'address', 'tier', 'debt_limit', 'is_active'];
+        $updateData = array_intersect_key($validated, array_flip($safeFields));
+
+        $customer->update($updateData);
 
         return response()->json($customer);
     }
+
     public function destroy(string $id)
     {
         $customer = Customer::findOrFail($id);

@@ -514,6 +514,4 @@ Berikut adalah skenario pengujian rinci untuk menguji validitas implementasi sis
 
 Aplikasi ini dikembangkan sebagai bagian dari tugas proyek akhir **Rekayasa Perangkat Lunak** (Software Engineering). Kode mematuhi prinsip clean code, error handling, dan keamanan transaksi database.
 
----
 
-*Diperbarui: 4 Juni 2026*

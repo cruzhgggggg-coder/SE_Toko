@@ -39,7 +39,7 @@
     <div class="toolbar">
       <div class="search-box">
         <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input v-model="search" type="text" placeholder="Cari nama atau SKU barang..." />
+        <input v-model="ui.searchQuery" type="text" placeholder="Cari nama atau SKU barang..." />
       </div>
       <select v-model="filterCat" class="select-filter">
         <option value="">Semua Kategori</option>
@@ -337,11 +337,12 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useInventoryStore } from '@/stores/inventory'
+import { useUIStore } from '@/stores/ui'
 import axios from '@/plugins/axios'
 import ToastNotification from '@/components/shared/ToastNotification.vue'
 
 const inventoryStore = useInventoryStore()
-const search = ref('')
+const ui = useUIStore()
 const filterCat = ref('')
 const filterStock = ref('')
 const showAdd = ref(false)
@@ -426,7 +427,8 @@ onMounted(async () => {
 
 const filteredProducts = computed(() => {
   return inventoryStore.products.filter(p => {
-    const matchSearch = !search.value || p.name.toLowerCase().includes(search.value.toLowerCase()) || (p.sku || '').toLowerCase().includes(search.value.toLowerCase())
+    const query = (ui.searchQuery || '').toLowerCase()
+    const matchSearch = !query || p.name.toLowerCase().includes(query) || (p.sku || '').toLowerCase().includes(query)
     const matchCat = !filterCat.value || p.category === filterCat.value
     const matchStock = !filterStock.value ||
       (filterStock.value === 'empty' && p.total_stock === 0) ||

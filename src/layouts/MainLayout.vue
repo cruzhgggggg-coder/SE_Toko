@@ -81,9 +81,6 @@
             <div class="topbar-search">
               <i class="fas fa-search search-icon"></i>
               <input type="text" v-model="ui.searchQuery" :placeholder="searchPlaceholder" />
-              <button class="barcode-btn" @click="focusSearch" title="Cari Barcode">
-                <i class="fas fa-barcode"></i>
-              </button>
             </div>
           </div>
         </div>
@@ -250,13 +247,7 @@ function toggleUserMenu() {
   showNotification.value = false
 }
 
-function focusSearch() {
-  const searchInput = document.querySelector('.topbar-search input')
-  if (searchInput) {
-    searchInput.focus()
-    searchInput.select()
-  }
-}
+
 
 function handleUserChange(user) {
   // Clearing role to force a new role selection for the new user or just logout
@@ -418,13 +409,7 @@ function handleUserChange(user) {
 
 .topbar-search input::placeholder { color: var(--color-text-muted); }
 
-.barcode-btn {
-  color: var(--color-text-muted);
-  padding: 0;
-  display: flex;
-  align-items: center;
-}
-.barcode-btn:hover { color: var(--color-primary); }
+
 
 .offline-badge {
   display: flex;

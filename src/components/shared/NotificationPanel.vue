@@ -70,7 +70,7 @@
             </div>
             <p class="notif-desc">{{ item.message }}</p>
             <div class="notif-actions-row">
-              <button class="notif-danger-btn" @click="dismissNotification(item)">BUANG</button>
+              <button class="notif-danger-btn" @click="discardExpiredStock(item)">BUANG</button>
             </div>
           </div>
         </div>
@@ -186,6 +186,22 @@ const dismissNotification = (item) => {
     dismissedKeys.value.push(key)
     localStorage.setItem('dismissed_notifications', JSON.stringify(dismissedKeys.value))
     emit('update-count')
+  }
+}
+
+const discardExpiredStock = async (item) => {
+  try {
+    if (confirm(`Apakah Anda yakin ingin membuang semua sisa stok untuk produk ini (Batch: ${item.batch_number || ''})?`)) {
+      await axios.post(`/products/${item.product_id}/discard-batch`, {
+        stock_batch_id: item.stock_batch_id
+      })
+      dismissNotification(item)
+      await fetchNotifications()
+      emit('update-count')
+    }
+  } catch (error) {
+    console.error('Failed to discard expired stock:', error)
+    alert('Gagal membuang stok: ' + (error.response?.data?.message || error.message))
   }
 }
 

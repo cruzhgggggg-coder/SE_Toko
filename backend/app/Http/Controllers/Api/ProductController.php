@@ -145,6 +145,37 @@ class ProductController extends Controller
         });
     }
 
+    public function discardBatch(Request $request, string $id)
+    {
+        $product = Product::findOrFail($id);
+
+        $validated = $request->validate([
+            'stock_batch_id' => 'required|exists:stock_batches,id',
+        ]);
+
+        return DB::transaction(function () use ($product, $validated, $request) {
+            $batch = $product->stockBatches()->findOrFail($validated['stock_batch_id']);
+
+            $discardQty = $batch->current_qty;
+            if ($discardQty > 0) {
+                $batch->update(['current_qty' => 0]);
+
+                // Create stock log for expired discard
+                $product->stockLogs()->create([
+                    'stock_batch_id' => $batch->id,
+                    'type' => 'EXPIRED',
+                    'quantity' => -$discardQty,
+                    'user_id' => $request->user()?->id ?? 1,
+                    'notes' => "Buang stok kadaluarsa (Batch: {$batch->batch_number})",
+                ]);
+
+                $product->updateLowStockStatus();
+            }
+
+            return response()->json(['message' => 'Stok kadaluarsa berhasil dibuang.'], 200);
+        });
+    }
+
     public function show(string $id)
     {
         $product = Product::with(['category', 'supplier', 'stockBatches' => function($query) {

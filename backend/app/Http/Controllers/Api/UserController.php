@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers\Api;
 
@@ -6,44 +6,63 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
 {
     public function index()
     {
-        return response()->json(User::all());
+        // Only return safe fields — never expose password hashes
+        $users = User::select('id', 'name', 'username', 'role', 'created_at', 'last_login')
+            ->get();
+
+        return response()->json($users);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'username' => 'required|string|unique:users,username',
-            'password' => 'required|string|min:6',
-            'role' => 'required|string|in:owner,admin,kasir',
+            'username' => 'required|string|min:4|max:50|unique:users,username',
+            'password' => ['required', 'string', 'min:8', Password::min(8)
+                ->mixedCase()
+                ->numbers()],
+            'role' => 'required|string|in:admin,kasir', // Cannot create owner via API
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
 
         $user = User::create($validated);
-        return response()->json($user, 201);
+
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'username' => $user->username,
+            'role' => $user->role,
+        ], 201);
     }
 
     public function show(string $id)
     {
-        $user = User::findOrFail($id);
+        if (!is_numeric($id)) {
+            return response()->json(['message' => 'ID pengguna tidak valid.'], 422);
+        }
+
+        $user = User::select('id', 'name', 'username', 'role', 'created_at', 'last_login')
+            ->findOrFail($id);
+
         return response()->json($user);
     }
 
     public function update(Request $request, string $id)
     {
         $user = User::findOrFail($id);
-        
+
         $validated = $request->validate([
-            'name' => 'string|max:255',
-            'username' => 'string|unique:users,username,' . $id,
-            'password' => 'nullable|string|min:6',
-            'role' => 'string|in:owner,admin,kasir',
+            'name' => 'sometimes|string|max:255',
+            'username' => 'sometimes|string|min:4|max:50|unique:users,username,' . $id,
+            'password' => 'nullable|string|min:8',
+            'role' => 'sometimes|string|in:admin,kasir', // Cannot promote to owner
         ]);
 
         if (isset($validated['password'])) {
@@ -53,16 +72,27 @@ class UserController extends Controller
         }
 
         $user->update($validated);
-        return response()->json($user);
+
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'username' => $user->username,
+            'role' => $user->role,
+        ]);
     }
 
     public function destroy(string $id)
     {
         $user = User::findOrFail($id);
-        
-        // Prevent deleting the last owner
-        if ($user->role === 'owner' && User::where('role', 'owner')->count() <= 1) {
-            return response()->json(['message' => 'Cannot delete the last owner.'], 403);
+
+        // Prevent deleting any owner account via API
+        if ($user->role === 'owner') {
+            return response()->json(['message' => 'Tidak dapat menghapus akun owner.'], 403);
+        }
+
+        // Prevent self-deletion
+        if ($user->id === auth()->id()) {
+            return response()->json(['message' => 'Tidak dapat menghapus akun sendiri.'], 403);
         }
 
         $user->delete();

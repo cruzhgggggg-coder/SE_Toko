@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Models;
 
@@ -13,37 +13,44 @@ class User extends Authenticatable
 
     /**
      * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
      */
     protected $fillable = [
         'name',
         'username',
         'password',
         'role',
-        'phone_number',
         'last_login',
     ];
 
     /**
      * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
      */
     protected $hidden = [
         'password',
         'remember_token',
+        'current_team_id',
+        'two_factor_recovery_codes',
+        'two_factor_secret',
     ];
 
     /**
      * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
             'password' => 'hashed',
+            'last_login' => 'datetime',
         ];
+    }
+
+    /**
+     * Prevent role from being mass-assigned to owner via API.
+     */
+    public function setRoleAttribute(string $value): void
+    {
+        $allowedRoles = ['admin', 'kasir'];
+        $currentRole = $this->attributes['role'] ?? 'kasir';
+        $this->attributes['role'] = in_array($value, $allowedRoles) ? $value : $currentRole;
     }
 }

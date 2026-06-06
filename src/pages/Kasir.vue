@@ -356,7 +356,7 @@ async function onDebtConfirm(debtData) {
       // Background register a new customer with a default limit of 5,000,000
       customer = await customerStore.addCustomer({
         name: debtData.customerName,
-        phone: '',
+        phone: debtData.customerPhone || '',
         address: 'Registrasi POS Otomatis',
         debt_limit: 5000000
       })
