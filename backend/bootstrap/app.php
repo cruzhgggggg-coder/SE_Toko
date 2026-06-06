@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,16 +20,5 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->throttleApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->shouldRenderJson(function (\Throwable $e, $request) {
-            if ($request->is('api/*')) {
-                $statusCode = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500;
-                $message = config('app.debug')
-                    ? $e->getMessage()
-                    : 'Terjadi kesalahan server. Silakan coba lagi.';
-
-                return response()->json([
-                    'message' => $message,
-                ], $statusCode);
-            }
-        });
+        //
     })->create();

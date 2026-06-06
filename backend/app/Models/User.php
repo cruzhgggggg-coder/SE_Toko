@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 namespace App\Models;
 
@@ -46,9 +46,17 @@ class User extends Authenticatable
 
     /**
      * Prevent role from being mass-assigned to owner via API.
+     * Allow all roles during initial creation (for seeder).
      */
     public function setRoleAttribute(string $value): void
     {
+        // Allow all roles on new model creation (needed for seeders)
+        if (!$this->exists) {
+            $this->attributes['role'] = $value;
+            return;
+        }
+
+        // On updates (via API), only allow admin and kasir to prevent privilege escalation
         $allowedRoles = ['admin', 'kasir'];
         $currentRole = $this->attributes['role'] ?? 'kasir';
         $this->attributes['role'] = in_array($value, $allowedRoles) ? $value : $currentRole;

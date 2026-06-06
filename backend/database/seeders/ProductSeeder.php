@@ -74,7 +74,7 @@ class ProductSeeder extends Seeder
             'current_qty' => 85,
             'buy_price' => 2800,
             'sell_price' => 3500,
-            'expired_date' => '2026-06-01',
+            'expired_date' => '2028-06-01',
         ]);
     }
 }
