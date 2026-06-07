@@ -11,7 +11,6 @@ class Product extends Model
         'sku', 
         'category',
         'category_id', 
-        'supplier_id',
         'unit', 
         'min_stock', 
         'is_low_stock', 
@@ -24,11 +23,6 @@ class Product extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
-    }
-
-    public function supplier()
-    {
-        return $this->belongsTo(Supplier::class);
     }
 
     public function stockBatches()

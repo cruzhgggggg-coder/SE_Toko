@@ -5,7 +5,6 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\CategoryController;
-use App\Http\Controllers\Api\SupplierController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -87,6 +86,5 @@ Route::middleware('auth:sanctum')->group(function () {
     // Categories & Suppliers — owner + admin
     Route::middleware('role:owner,admin')->group(function () {
         Route::apiResource('categories', CategoryController::class);
-        Route::apiResource('suppliers', SupplierController::class);
     });
 });

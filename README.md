@@ -199,7 +199,7 @@ http://localhost:5173
 ```
 Toko_SE_Semester4/
 ├── src/                          # Vue 3 Frontend
-│   ├── pages/                    # 12 halaman route-level
+│   ├── pages/                    # 11 halaman route-level
 │   │   ├── Login.vue             # /login
 │   │   ├── RoleSelection.vue     # /select-role
 │   │   ├── Dashboard.vue         # / (owner only)
@@ -210,8 +210,7 @@ Toko_SE_Semester4/
 │   │   ├── Laporan.vue           # /laporan (owner only)
 │   │   ├── Pengaturan.vue        # /pengaturan (owner only)
 │   │   ├── Backup.vue            # /backup (owner only)
-│   │   ├── PrintReceipt.vue      # /print-receipt/:id
-│   │   └── Karyawan.vue          # /karyawan (owner only)
+│   │   └── PrintReceipt.vue      # /print-receipt/:id
 │   ├── components/
 │   │   ├── modals/               # DebtModal, PaymentModal, GantiUserModal
 │   │   └── shared/               # NotificationPanel, Toast, ReceiptPrint
@@ -267,7 +266,6 @@ Berikut adalah visualisasi hubungan antar entitas database SQLite pada aplikasi:
 | `debt_payments` | Pembayaran hutang | belongsTo Debt |
 | `settings` | Pengaturan sistem (key-value) | - |
 | `financial_reports` | Laporan keuangan harian | - |
-| `transaction_returns` | Retur transaksi | belongsTo Transaction, TransactionItem |
 
 ---
 

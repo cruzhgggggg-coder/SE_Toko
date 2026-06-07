@@ -29,14 +29,14 @@ class EnsureUserHasRole
         }
 
         $userRoleLevel = self::ROLE_HIERARCHY[$user->role] ?? 0;
-        $maxRequiredLevel = 0;
+        
+        $requiredLevels = array_map(function($role) {
+            return self::ROLE_HIERARCHY[trim($role)] ?? 0;
+        }, $allowedRoles);
 
-        foreach ($allowedRoles as $role) {
-            $level = self::ROLE_HIERARCHY[trim($role)] ?? 0;
-            $maxRequiredLevel = max($maxRequiredLevel, $level);
-        }
+        $minRequiredLevel = empty($requiredLevels) ? 0 : min($requiredLevels);
 
-        if ($userRoleLevel < $maxRequiredLevel) {
+        if ($userRoleLevel < $minRequiredLevel) {
             Log::warning('Unauthorized access attempt blocked', [
                 'user_id' => $user->id,
                 'user_role' => $user->role,

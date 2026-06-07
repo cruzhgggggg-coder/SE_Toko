@@ -73,7 +73,7 @@ Toko_SE_Semester4/
 |  +- App.vue                    <- Root component
 |  +- main.js                    <- Entry point (createApp, router, pinia)
 |  +- style.css                  <- Global CSS Design Tokens
-|  +- pages/                     <- Route-Level Components (12 halaman)
+|  +- pages/                     <- Route-Level Components (11 halaman)
 |  |  +- Login.vue               <- /login
 |  |  +- RoleSelection.vue       <- /select-role
 |  |  +- Dashboard.vue           <- / (owner only)
@@ -85,7 +85,6 @@ Toko_SE_Semester4/
 |  |  +- Pengaturan.vue          <- /pengaturan (owner only)
 |  |  +- Backup.vue              <- /backup (owner only)
 |  |  +- PrintReceipt.vue        <- /print-receipt/:id (blank layout)
-|  |  +- Karyawan.vue            <- /karyawan (owner only)
 |  +- components/
 |  |  +- modals/
 |  |  |  +- DebtModal.vue        <- Modal kasbon di Kasir
@@ -125,7 +124,7 @@ Toko_SE_Semester4/
 
 +- backend/                       <- Laravel 11 Backend
 |  +- app/
-|  |  +- Models/                 <- 14 Eloquent Models
+|  |  +- Models/                 <- 12 Eloquent Models
 |  |  |  +- Product.php          <- updateLowStockStatus()
 |  |  |  +- Customer.php         <- tier di fillable
 |  |  |  +- Transaction.php      <- cash_paid di fillable
@@ -135,12 +134,10 @@ Toko_SE_Semester4/
 |  |  |  +- Debt.php
 |  |  |  +- DebtPayment.php
 |  |  |  +- Category.php
-|  |  |  +- Supplier.php
 |  |  |  +- Setting.php
 |  |  |  +- FinancialReport.php
 |  |  |  +- User.php
-|  |  |  +- TransactionReturn.php
-|  |  +- Http/Controllers/Api/  <- 14 API Controllers
+|  |  +- Http/Controllers/Api/  <- 12 API Controllers
 |  |     +- AuthController.php
 |  |     +- DashboardController.php
 |  |     +- ProductController.php
@@ -148,15 +145,13 @@ Toko_SE_Semester4/
 |  |     +- TransactionController.php
 |  |     +- DebtController.php
 |  |     +- CategoryController.php
-|  |     +- SupplierController.php
 |  |     +- NotificationController.php
 |  |     +- FinancialReportController.php
 |  |     +- SettingController.php
 |  |     +- BackupController.php
 |  |     +- UserController.php
-|  |     +- TransactionReturnController.php
 |  +- database/
-|  |  +- migrations/             <- 24 migration files
+|  |  +- migrations/             <- 22 migration files
 |  |  +- seeders/
 |  |  |  +- DatabaseSeeder.php
 |  |  |  +- ProductSeeder.php
@@ -207,7 +202,6 @@ Toko_SE_Semester4/
 | sku | string, unique | Kode SKU (auto-generate jika kosong) |
 | category | string | Nama kategori (text field, diisi otomatis dari category_id) |
 | category_id | bigint FK | Foreign key ke categories.id |
-| supplier_id | bigint FK | Foreign key ke suppliers.id |
 | unit | string | Satuan (pcs, kg, liter, dll.) |
 | min_stock | integer | Batas minimum stok |
 | is_low_stock | boolean | Flag stok menipis (diupdate otomatis) |
@@ -338,18 +332,6 @@ Toko_SE_Semester4/
 | net_income | decimal | Laba bersih |
 | timestamps | - | created_at, updated_at |
 
-#### Tabel transaction_returns
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| id | bigint PK | Auto-increment |
-| transaction_id | bigint FK | Foreign key ke transactions.id (cascade delete) |
-| transaction_item_id | bigint FK | Foreign key ke transaction_items.id (cascade delete) |
-| user_id | bigint FK | Foreign key ke users.id (cascade delete) |
-| qty | integer | Kuantitas yang diretur |
-| reason | text, nullable | Alasan retur |
-| status | enum | pending, approved, rejected (default: pending) |
-| timestamps | - | created_at, updated_at |
-
 ### Penjelasan Relasi Kritis
 
 | Relasi | Tipe | Penjelasan |
@@ -364,8 +346,6 @@ Toko_SE_Semester4/
 | Transaction -> TransactionItem | hasMany | Satu transaksi berisi satu atau lebih item produk |
 | Product -> Category | belongsTo | Setiap produk terkait dengan satu kategori |
 | Transaction -> User | belongsTo | Setiap transaksi dilakukan oleh satu user |
-| TransactionReturn -> Transaction | belongsTo | Setiap retur terkait dengan satu transaksi |
-| TransactionReturn -> TransactionItem | belongsTo | Setiap retur terkait dengan satu item transaksi |
 
 ---
 
@@ -465,21 +445,7 @@ Method ini dipanggil di: ProductController::store(), addStock(), update(), dan T
 2. exportDailyReportExcel() - Laporan harian: transaksi, pemasukan, pelunasan, hutang baru, laba bersih.
 3. exportDetailedReportExcel() - Detail: penjualan per produk, per kategori, per metode pembayaran.
 
-### G. Fitur Retur Transaksi (TransactionReturn)
-
-Fitur retur diimplementasi ulang menggunakan `TransactionReturn` model dan `TransactionReturnController`.
-
-**Alur Kerja:**
-1. User memilih item transaksi yang akan diretur.
-2. Input kuantitas retur dan alasan.
-3. Backend memvalidasi: kuantitas retur tidak melebihi kuantitas yang dibeli dikurangi retur sebelumnya.
-4. Record `TransactionReturn` dibuat dengan status `approved` (auto-approve).
-5. Stok dikembalikan melalui pembuatan batch baru (`RET-{tanggal}-{id}`).
-6. StockLog dicatat dengan type `RETURN`.
-
-> Catatan: Route `/api/transaction-returns` belum didaftarkan di `routes/api.php`. Controller dan model sudah ada tapi fitur belum aktif.
-
-### H. Mekanisme Autentikasi dan Otorisasi (RBAC)
+### G. Mekanisme Autentikasi dan Otorisasi (RBAC)
 
 **Proses Login (AuthController::login()):**
 1. Frontend mengirim: { username, password, role } - login menggunakan username (bukan email).
@@ -494,6 +460,9 @@ Fitur retur diimplementasi ulang menggunakan `TransactionReturn` model dan `Tran
 3. Role belum dipilih? -> /select-role
 4. Role tidak punya akses? -> Redirect ke halaman default role
 
+**Perbaikan Otorisasi Hirarki:**
+Sebelumnya terdapat bug pada middleware `EnsureUserHasRole.php` yang membatasi hak akses berdasarkan level tertinggi dari rute yang diizinkan (misal: rute `role:owner,kasir` mengharuskan level 3/owner). Bug ini telah diperbaiki dengan menghitung level minimum yang diizinkan, sehingga role `kasir` (level 1) atau `admin` (level 2) tetap dapat mengakses rute yang memang diperuntukkan bagi mereka.
+
 **Peta Akses per Role:**
 | Route | Owner | Admin | Kasir |
 |---|---|---|---|
@@ -505,9 +474,8 @@ Fitur retur diimplementasi ulang menggunakan `TransactionReturn` model dan `Tran
 | /laporan | YES | NO | NO |
 | /pengaturan | YES | NO | NO |
 | /backup | YES | NO | NO |
-| /karyawan | YES | NO | NO |
 
-### I. Dashboard Analytics
+### H. Dashboard Analytics
 
 **Endpoint**: GET /api/dashboard/stats
 
@@ -524,7 +492,7 @@ Fitur retur diimplementasi ulang menggunakan `TransactionReturn` model dan `Tran
 
 **Tampilan**: 4 kartu stat, grafik bar CSS, SVG growth chart, expiry alert banner.
 
-### J. Sistem Notifikasi (3 Tipe)
+### I. Sistem Notifikasi (3 Tipe)
 
 | Tipe | Kondisi | Severity |
 |---|---|---|
@@ -534,36 +502,36 @@ Fitur retur diimplementasi ulang menggunakan `TransactionReturn` model dan `Tran
 
 **Dismiss Mechanism**: localStorage key `dismissed_notifications`, format `type:title:message`. Poll 90 detik.
 
-### K. Sistem Backup dan Restore
+### J. Sistem Backup dan Restore
 
 **Backup**: GET /api/backup -> download database.sqlite
 **Restore**: POST /api/restore -> upload .sqlite, safety backup ke .bak, replace DB, reload halaman.
 
-### L. Modul Pembayaran (PaymentModal)
+### K. Modul Pembayaran (PaymentModal)
 
 **3 Metode**: Tunai (input jumlah + kalkulasi kembalian), QRIS (placeholder), Transfer (nominal otomatis).
 **Quick Cash**: Tombol cepat dihitung: total, bulatkan ke 10rb, 50rb, 100rb ke atas. Max 4 tombol.
 **Pemetaan**: Frontend tunai->cash, qris/transfer->transfer. Backend hanya terima cash dan transfer.
 **Kembalian**: Dihitung dari `cash_paid - total_amount` dan ditampilkan di struk.
 
-### M. Safety Checks pada Operasi Hapus
+### L. Safety Checks pada Operasi Hapus
 
 **Produk**: Tidak bisa dihapus jika masih ada stok (current_qty > 0). Tombol hapus tersedia di halaman Inventory.
 **Pelanggan**: Tidak bisa dihapus jika masih memiliki hutang (current_debt > 0).
 
-### N. Alur Cetak Struk
+### M. Alur Cetak Struk
 
 **Komponen**: ReceiptPrint.vue (inline, untuk fallback offline) + PrintReceipt.vue (halaman terpisah, blank layout).
 **Alur**: Transaksi sukses -> redirect /print-receipt/:id?autoprint=true -> window.print().
 **Offline**: Struk dicetak dari data keranjang lokal via setTimeout(window.print, 150).
 **Kembalian**: Dihitung dari `tx.cash_paid - tx.total_amount` (field `cash_paid` disimpan di database).
 
-### O. Fitur Lengkap Direktori Pelanggan
+### N. Fitur Lengkap Direktori Pelanggan
 
 **Summary Cards**: Total Piutang, Total Pelanggan, Pembayaran Tertunda.
 **Fitur**: Search (nama/telepon/status), Filter Status (Semua/Lunas/Tertunda/Jatuh Tempo), Tambah Pelanggan (modal), Aksi Bayar (redirect ke LunasHutang).
 
-### P. Detail Fitur Laporan Keuangan
+### O. Detail Fitur Laporan Keuangan
 
 **3 Kartu**: Total Pemasukan (terbuka), HPP (terkunci), Laba Bersih (terkunci + Buka Akses).
 **Proteksi**: Password via Hash::check(). HPP = SUM(qty x cost_price). Laba = Pemasukan - HPP.
@@ -571,7 +539,7 @@ Fitur retur diimplementasi ulang menggunakan `TransactionReturn` model dan `Tran
 **Paginasi**: 15 item per halaman, navigasi halaman dengan tombol prev/next/page.
 **Aksi**: Kembali, Detail Penjualan, Simpan Laporan Harian (POST + download Excel), Export Excel.
 
-### Q. Fitur Pengaturan Sistem
+### P. Fitur Pengaturan Sistem
 
 **Endpoint**: GET/POST /api/settings (key-value store).
 **Defaults**: shop_name='Toko Sumber Makmur', shop_address, shop_phone, currency='IDR', low_stock_threshold=10.
@@ -579,13 +547,13 @@ Fitur retur diimplementasi ulang menggunakan `TransactionReturn` model dan `Tran
 **Sync Badge**: Setelah save berhasil, badge "Sistem Sinkron" muncul selama 3 detik di pojok kanan bawah.
 **Logo Upload**: Input file image dengan validasi max 2MB, preview ditampilkan setelah pemilihan.
 
-### R. Fitur Hapus Produk
+### Q. Fitur Hapus Produk
 
 **Endpoint**: DELETE /api/products/:id
 **Alur**: Tombol hapus (ikon trash merah) di tabel Inventory -> konfirmasi dialog -> produk dihapus jika stok = 0.
 **Safety Check**: Backend memeriksa `current_qty > 0` sebelum mengizinkan penghapusan.
 
-### S. Fitur Paginasi Laporan
+### R. Fitur Paginasi Laporan
 
 **Implementasi**: Client-side pagination di `Laporan.vue`.
 - `perPage = 15` item per halaman
@@ -645,6 +613,13 @@ Fitur retur diimplementasi ulang menggunakan `TransactionReturn` model dan `Tran
 | No | Masalah | File | Perubahan |
 |---|---|---|---|
 | D | Transaction $fillable missing cash_paid | Transaction.php | Tambah `cash_paid` ke array fillable |
+
+### Pembersihan & Penyelarasan DB-UI Juni 2026 (3 Perubahan)
+| No | Masalah / Perubahan | File | Deskripsi |
+|---|---|---|---|
+| 1 | Tabel `suppliers` tidak terpakai | Migration & Model & Controller | Menghapus tabel, model `Supplier`, `SupplierController`, dan kolom `supplier_id` di tabel `products` agar sinkron dengan UI. |
+| 2 | Tabel `transaction_returns` tidak terpakai | Migration & Model & Controller | Menghapus tabel, model, dan controller untuk retur karena tidak diakses oleh UI. |
+| 3 | Bug middleware hirarki role | EnsureUserHasRole.php | Mengubah pencarian level dari `max()` menjadi `min()` sehingga kasir/admin tidak terblokir dari rute gabungan. |
 
 ---
 
@@ -819,11 +794,6 @@ Fitur retur diimplementasi ulang menggunakan `TransactionReturn` model dan `Tran
 | GET | /api/backup | Download database.sqlite |
 | POST | /api/restore | Upload .sqlite file |
 
-### Suppliers
-| Method | Endpoint | Body |
-|---|---|---|
-| GET/POST/PUT/DELETE | /api/suppliers | {name*} |
-
 ---
 
-*Dokumen ini disusun berdasarkan analisis menyeluruh terhadap seluruh kode sumber proyek Toko Sumber Makmur POS v2.1 pada tanggal 4 Juni 2026.*
+*Dokumen ini disusun berdasarkan analisis menyeluruh terhadap seluruh kode sumber proyek Toko Sumber Makmur POS v2.2 pada tanggal 7 Juni 2026.*

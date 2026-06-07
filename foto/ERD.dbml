@@ -1,0 +1,290 @@
+// ============================================================
+// Toko Sumber Makmur - ERD (Owner Dashboard Feature Mapping)
+// Format: dbdiagram.io compatible DBML
+// Updated: 2026-06-07
+// ============================================================
+//
+// OWNER HAS ACCESS TO ALL FEATURES:
+// Sidebar Menu:
+//  - Kasir        -> transactions, transaction_items, products, stock_batches, customers, debts
+//  - Stok Barang  -> products, stock_batches, categories, suppliers, stock_logs
+//  - Pelanggan    -> customers, debts, debt_payments
+//  - Beranda      -> Dashboard stats (aggregated from above)
+//  - Laporan      -> transactions, financial_reports
+//  - Pengaturan   -> settings, users (password)
+//  - Simpan Data  -> All tables (backup/restore)
+//  - Notifikasi   -> products+stock_batches, debts+customers
+
+// Enums
+Enum UserRole {
+  owner
+  admin
+  kasir
+}
+
+Enum ReturnStatus {
+  pending
+  approved
+  rejected
+}
+
+// ============================================================
+// FEATURE 1: AUTH & USER MANAGEMENT
+// Pages: Login.vue, Karyawan.vue, Pengaturan.vue
+// ============================================================
+
+Table users {
+  id bigint [pk, increment]
+  name varchar
+  username varchar [unique]
+  password varchar
+  role UserRole [default: 'kasir']
+  phone_number varchar [null]
+  last_login timestamp [null]
+  remember_token varchar [null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'User accounts. role: owner (full access), admin (inventory), kasir (sales).'
+}
+
+Table password_reset_tokens {
+  username varchar [pk]
+  token varchar
+  created_at timestamp [null]
+}
+
+Table sessions {
+  id varchar [pk]
+  user_id bigint [null, ref: > users.id]
+  ip_address varchar(45) [null]
+  user_agent text [null]
+  payload longtext
+  last_activity int
+}
+
+Table personal_access_tokens {
+  id bigint [pk, increment]
+  tokenable_type varchar
+  tokenable_id bigint
+  name varchar
+  token varchar [unique]
+  abilities text [null]
+  last_used_at timestamp [null]
+  expires_at timestamp [null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Sanctum API tokens. Bearer auth with 12hr expiry.'
+}
+
+// ============================================================
+// FEATURE 2: PRODUCT INVENTORY
+// Pages: Inventory.vue, Kasir.vue
+// ============================================================
+
+Table categories {
+  id bigint [pk, increment]
+  name varchar [unique]
+  description text [null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Seeded: Beras, Minyak, Gula, Tepung, Mie & Pasta, Minuman, Sabun & Detergen, Rokok.'
+}
+
+Table suppliers {
+  id bigint [pk, increment]
+  name varchar
+  contact_person varchar [null]
+  phone varchar [null]
+  address text [null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Product suppliers. Optional FK on products.'
+}
+
+Table products {
+  id bigint [pk, increment]
+  name varchar
+  sku varchar [unique]
+  category varchar
+  unit varchar [default: 'pcs']
+  base_buy_price decimal(15,2) [default: 0]
+  base_sell_price decimal(15,2) [default: 0]
+  image varchar [null]
+  min_stock int [default: 10]
+  is_low_stock bool [default: false]
+  category_id bigint [null, ref: > categories.id, note: 'SET NULL on delete']
+  supplier_id bigint [null, ref: > suppliers.id, note: 'SET NULL on delete']
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Products. total_stock = SUM(stock_batches.current_qty). SKU auto-generated (BRS-001). image shown in Kasir catalog.'
+}
+
+Table stock_batches {
+  id bigint [pk, increment]
+  product_id bigint [ref: > products.id, note: 'CASCADE on delete']
+  batch_number varchar
+  qty int
+  current_qty int
+  buy_price decimal(15,2)
+  sell_price decimal(15,2)
+  expired_date date [null]
+  rack_location varchar [null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'FIFO stock batches. current_qty tracks remaining stock. expired_date powers EXPIRY notifications.'
+}
+
+Table stock_logs {
+  id bigint [pk, increment]
+  product_id bigint [ref: > products.id, note: 'CASCADE on delete']
+  stock_batch_id bigint [null, ref: > stock_batches.id, note: 'CASCADE on delete']
+  type varchar
+  quantity int
+  reference_id varchar [null]
+  user_id bigint [ref: > users.id, note: 'CASCADE on delete']
+  notes text [null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Audit trail. type: SALE, RESTOCK, ADJUSTMENT, RETURN, EXPIRED. quantity: negative = outgoing.'
+}
+
+// ============================================================
+// FEATURE 3: CUSTOMER & DEBT MANAGEMENT
+// Pages: Pelanggan.vue, LunasHutang.vue, Kasir.vue
+// ============================================================
+
+Table customers {
+  id bigint [pk, increment]
+  name varchar
+  phone varchar [null]
+  address text [null]
+  tier varchar [default: 'New Customer']
+  debt_limit decimal(15,2) [default: 0]
+  current_debt decimal(15,2) [default: 0]
+  is_active bool [default: true]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'tier displayed in Pelanggan.vue. debt_limit enforced in TransactionController.'
+}
+
+Table debts {
+  id bigint [pk, increment]
+  customer_id bigint [ref: > customers.id]
+  transaction_id bigint [ref: > transactions.id]
+  amount decimal(15,2)
+  remaining_amount decimal(15,2)
+  due_date date [null]
+  status varchar [default: 'unpaid']
+  notes text [null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'status: unpaid, partial, paid. due_date powers OVERDUE_DEBT notifications.'
+}
+
+Table debt_payments {
+  id bigint [pk, increment]
+  debt_id bigint [ref: > debts.id, note: 'CASCADE on delete']
+  amount decimal(15,2)
+  payment_date timestamp
+  note text [null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Reduces debts.remaining_amount AND customers.current_debt.'
+}
+
+// ============================================================
+// FEATURE 4: TRANSACTIONS (SALES)
+// Pages: Kasir.vue, Laporan.vue, Dashboard.vue
+// ============================================================
+
+Table transactions {
+  id bigint [pk, increment]
+  user_id bigint [ref: > users.id]
+  customer_id bigint [null, ref: > customers.id]
+  total_amount decimal(15,2)
+  cash_paid decimal(15,2) [null]
+  payment_method varchar
+  status varchar [default: 'completed']
+  notes text [null]
+  transaction_date timestamp
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'payment_method: cash, transfer, debt. cash_paid = actual cash for change calculation.'
+}
+
+Table transaction_items {
+  id bigint [pk, increment]
+  transaction_id bigint [ref: > transactions.id, note: 'CASCADE on delete']
+  product_id bigint [ref: > products.id]
+  qty int
+  price decimal(15,2)
+  cost_price decimal(15,2) [default: 0]
+  subtotal decimal(15,2)
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Line items. cost_price = weighted-average cost (for profit). subtotal = qty * price.'
+}
+
+Table transaction_returns {
+  id bigint [pk, increment]
+  transaction_id bigint [ref: > transactions.id, note: 'CASCADE on delete']
+  transaction_item_id bigint [ref: > transaction_items.id, note: 'CASCADE on delete']
+  user_id bigint [ref: > users.id, note: 'CASCADE on delete']
+  qty int
+  reason text [null]
+  status ReturnStatus [default: 'pending']
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Return requests. status: pending, approved, rejected. No dedicated UI page yet.'
+}
+
+// ============================================================
+// FEATURE 5: FINANCIAL REPORTING
+// Pages: Dashboard.vue, Laporan.vue
+// ============================================================
+
+Table financial_reports {
+  id bigint [pk, increment]
+  report_date date [unique]
+  total_revenue decimal(15,2)
+  total_cost decimal(15,2)
+  total_profit decimal(15,2)
+  transaction_count int
+  new_debt_amount decimal(15,2)
+  debt_payments_received decimal(15,2)
+  expense_amount decimal(15,2) [default: 0]
+  net_income decimal(15,2) [default: 0]
+  created_by_user varchar
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Persisted daily reports via Laporan.vue. created_by_user = name snapshot (not FK).'
+}
+
+// ============================================================
+// FEATURE 6: APPLICATION SETTINGS
+// Pages: Pengaturan.vue, MainLayout.vue
+// ============================================================
+
+Table settings {
+  id bigint [pk, increment]
+  key varchar [unique]
+  value text [null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Keys: shop_name, shop_address, shop_phone, currency, low_stock_threshold, security_*.'
+}

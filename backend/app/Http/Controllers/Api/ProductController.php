@@ -12,7 +12,7 @@ class ProductController extends Controller
 {
     public function index()
     {
-        $products = Product::with(['category', 'supplier', 'stockBatches' => function($query) {
+        $products = Product::with(['category', 'stockBatches' => function($query) {
             $query->where('current_qty', '>', 0)->orderBy('expired_date', 'asc');
         }])->get()->map(function($product) {
             $totalStock = $product->stockBatches->sum('current_qty');
@@ -22,8 +22,6 @@ class ProductController extends Controller
                 'sku' => $product->sku,
                 'category' => $product->category?->name ?? $product->category, // fallback to old text field if needed
                 'category_id' => $product->category_id,
-                'supplier_id' => $product->supplier_id,
-                'supplier_name' => $product->supplier?->name,
                 'unit' => $product->unit,
                 'min_stock' => $product->min_stock,
                 'total_stock' => $totalStock,
@@ -42,7 +40,6 @@ class ProductController extends Controller
             'sku' => 'nullable|string|max:255|unique:products,sku',
             'category' => 'nullable|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
-            'supplier_id' => 'nullable|exists:suppliers,id',
             'unit' => 'required|string|max:50',
             'min_stock' => 'required|integer|min:0',
             'base_buy_price' => 'nullable|numeric|min:0',
@@ -178,7 +175,7 @@ class ProductController extends Controller
 
     public function show(string $id)
     {
-        $product = Product::with(['category', 'supplier', 'stockBatches' => function($query) {
+        $product = Product::with(['category', 'stockBatches' => function($query) {
             $query->where('current_qty', '>', 0)->orderBy('expired_date', 'asc');
         }])->findOrFail($id);
 
@@ -190,8 +187,6 @@ class ProductController extends Controller
             'sku' => $product->sku,
             'category_id' => $product->category_id,
             'category' => $product->category?->name ?? $product->category,
-            'supplier_id' => $product->supplier_id,
-            'supplier_name' => $product->supplier?->name,
             'unit' => $product->unit,
             'min_stock' => $product->min_stock,
             'total_stock' => $totalStock,
@@ -208,7 +203,6 @@ class ProductController extends Controller
             'sku' => 'required|string|max:255|unique:products,sku,' . $id,
             'category' => 'nullable|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
-            'supplier_id' => 'nullable|exists:suppliers,id',
             'unit' => 'required|string|max:50',
             'min_stock' => 'required|integer|min:0',
             'base_buy_price' => 'nullable|numeric|min:0',
